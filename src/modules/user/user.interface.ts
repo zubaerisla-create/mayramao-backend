@@ -1,0 +1,25 @@
+import { Types } from "mongoose";
+
+export interface IUserProfile {
+  userId: string | Types.ObjectId;
+  email?: string;
+  fullName?: string;
+  profileImage?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  monthlyIncome?: number;
+  fixedExpenses?: number;
+  existingLoans?: number;
+  totalMonthlyLoanPayments?: number;
+  variableExpenses?: number;
+  currentSavings?: number;
+  dependents?: string[];
+  householdResponsibilityLevel?: string;
+  incomeStability?: string;
+  riskTolerance?: string;
+  planName?: string;
+  targetAmount?: number;
+  targetDate?: Date;
+  goalDescription?: string;
+  
+}
