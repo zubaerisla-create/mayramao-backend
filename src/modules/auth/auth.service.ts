@@ -9,6 +9,10 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from ".
 import bcrypt from "bcrypt";
 import { IAuth } from "./auth.interface";
 
+// google auth (requires npm package `google-auth-library`)
+import { OAuth2Client } from "google-auth-library";
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const registerUser = async (payload: IAuth) => {
   const existingUser = await Auth.findOne({ email: payload.email });
   if (existingUser) throw new Error("Email already registered");
@@ -76,6 +80,52 @@ const loginUser = async (email: string, password: string) => {
     email: user.email,
   });
 
+  const refreshToken = generateRefreshToken({
+    id: user._id.toString(),
+    email: user.email,
+  });
+
+  return {
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+    accessToken,
+    refreshToken,
+  };
+};
+
+// login/register with Google ID token
+const googleLogin = async (idToken: string) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    throw new Error("Google client ID not configured");
+  }
+  const ticket = await googleClient.verifyIdToken({
+    idToken,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email) {
+    throw new Error("Invalid Google token payload");
+  }
+
+  let user = await Auth.findOne({ email: payload.email });
+  if (!user) {
+    // create new user with no password (login only via Google)
+    user = await Auth.create({
+      name: payload.name || "",
+      email: payload.email,
+      password: "", // blank placeholder
+      verified: true,
+    });
+  }
+
+  // Generate tokens
+  const accessToken = generateAccessToken({
+    id: user._id.toString(),
+    email: user.email,
+  });
   const refreshToken = generateRefreshToken({
     id: user._id.toString(),
     email: user.email,
@@ -249,4 +299,4 @@ const changePassword = async (userId: string, currentPassword: string, newPasswo
   return { message: "Password changed successfully" };
 };
 
-export const AuthService = { registerUser, verifyOTP, loginUser, refreshAccessToken, resendOTP, forgotPassword, resetPassword, requestAccountDeletion, confirmAccountDeletion, changePassword };
+export const AuthService = { registerUser, verifyOTP, loginUser, googleLogin, refreshAccessToken, resendOTP, forgotPassword, resetPassword, requestAccountDeletion, confirmAccountDeletion, changePassword };

@@ -18,6 +18,20 @@ const login = async (req: Request, res: Response) => {
   res.status(200).json({ success: true, ...result });
 };
 
+const googleAuth = async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: "idToken is required" });
+    }
+    const result = await AuthService.googleLogin(idToken);
+    res.status(200).json({ success: true, ...result });
+  } catch (error: any) {
+    console.error("Google auth error:", error);
+    res.status(400).json({ success: false, message: error.message || "Google authentication failed" });
+  }
+};
+
 const refreshToken = async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
@@ -117,4 +131,4 @@ const changePassword = async (req: Request, res: Response) => {
   }
 };
 
-export const AuthController = { register, verify, login, refreshToken, resendOTP, forgotPassword, resetPassword, requestAccountDeletion, confirmAccountDeletion, changePassword };
+export const AuthController = { register, verify, login, googleAuth, refreshToken, resendOTP, forgotPassword, resetPassword, requestAccountDeletion, confirmAccountDeletion, changePassword };
