@@ -10,6 +10,7 @@ export interface ITicket {
   adminTicketId?: string;
   reply?: string;
   dateSubmitted: Date;
+  closeAt?: Date | null;
 }
 
 export interface ITicketDocument extends ITicket, Document {}
@@ -26,11 +27,12 @@ const ticketSchema = new Schema<ITicketDocument>(
     userId: { type: Schema.Types.ObjectId, required: true, ref: "Auth" },
     userEmail: { type: String, required: true },
     subject: { type: String, required: true },
-    status: { type: String, enum: ["new", "open", "replied"], default: "new" },
+    status: { type: String, enum: ["new", "open", "replied", "closed"], default: "new" },
     adminId: { type: Schema.Types.ObjectId, ref: "Admin", default: null },
     adminTicketId: { type: String, default: "" },
     reply: { type: String, default: "" },
     dateSubmitted: { type: Date, default: Date.now },
+    closeAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -34,6 +34,8 @@ const replyToTicket = async (id: string, adminId: string, reply: string) => {
   ticket.status = "replied";
   ticket.adminId = new Types.ObjectId(adminId);
   ticket.adminTicketId = "ADM-" + new Date().getTime().toString(36) + Math.random().toString(36).substr(2,5);
+  // schedule closing in 7 days
+  ticket.closeAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   // persist changes before sending mail
   await ticket.save();
@@ -54,6 +56,19 @@ const replyToTicket = async (id: string, adminId: string, reply: string) => {
 
   return ticket.toObject();
 };
+
+// periodically close tickets whose closeAt has passed
+const scheduleClosure = () => {
+  setInterval(async () => {
+    const now = new Date();
+    await Ticket.updateMany(
+      { status: { $in: ["replied", "open"] }, closeAt: { $lte: now } },
+      { status: "closed" }
+    );
+  }, 1000 * 60 * 60); // every hour
+};
+// start scheduler immediately
+scheduleClosure();
 
 export const TicketService = {
   createTicket,
