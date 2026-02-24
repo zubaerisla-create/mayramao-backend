@@ -3,6 +3,7 @@ import { UserService } from "./user.service";
 import { Types } from "mongoose";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { Auth } from "../auth/auth.model";
+import { TicketService } from "../ticket/ticket.service";
 
 const getProfile = async (req: AuthRequest, res: Response) => {
   try {
@@ -229,6 +230,16 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
       allowed.goalDescription = String(body.goalDescription);
     }
 
+    // contact/support objects
+    if (typeof body.contact !== 'undefined') {
+      console.log('setting contact:', body.contact);
+      allowed.contact = body.contact;
+    }
+    if (typeof body.support !== 'undefined') {
+      console.log('setting support:', body.support);
+      allowed.support = body.support;
+    }
+
     console.log('patchProfile final allowed update:', allowed, 'tokenId:', tokenId, 'using userId:', userId);
 
     if (Object.keys(allowed).length === 0) {
@@ -244,4 +255,47 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const UserController = { getProfile, saveProfile, patchProfile };
+// helpers to submit a simple contact/support object without other profile changes
+const submitContact = async (req: AuthRequest, res: Response) => {
+  try {
+    const tokenId = req.user?.id;
+    if (!tokenId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { fullName, email, description } = req.body || {};
+    if (!fullName || !email || !description) {
+      return res.status(400).json({ success: false, message: "fullName, email and description are required" });
+    }
+
+    const update = { contact: { fullName, email, description } };
+    const profile = await UserService.patchProfile(tokenId, update as any);
+
+    // create ticket entry as well
+    const ticket = await TicketService.createTicket(tokenId, email, description);
+
+    res.status(200).json({ success: true, profile, ticket });
+  } catch (error: any) {
+    console.error("submitContact error:", error);
+    res.status(500).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+const submitSupport = async (req: AuthRequest, res: Response) => {
+  try {
+    const tokenId = req.user?.id;
+    if (!tokenId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { fullName, email, description } = req.body || {};
+    if (!fullName || !email || !description) {
+      return res.status(400).json({ success: false, message: "fullName, email and description are required" });
+    }
+
+    const update = { support: { fullName, email, description } };
+    const profile = await UserService.patchProfile(tokenId, update as any);
+    res.status(200).json({ success: true, profile });
+  } catch (error: any) {
+    console.error("submitSupport error:", error);
+    res.status(500).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+export const UserController = { getProfile, saveProfile, patchProfile, submitContact, submitSupport };

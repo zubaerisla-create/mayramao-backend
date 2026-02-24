@@ -21,11 +21,20 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
     householdResponsibilityLevel: { type: String, default: "" },
     incomeStability: { type: String, default: "" },
     riskTolerance: { type: String, default: "" },
+  
     
     planName: { type: String, default: "" },
     targetAmount: { type: Number, default: 0 }, // Fixed: was String, now Number
     targetDate: { type: Date, default: null },
     goalDescription: { type: String, default: "" },
+
+    // contact and support objects
+    contact: {
+      fullName: { type: String, default: "" },
+      email: { type: String, default: "" },
+      description: { type: String, default: "" },
+    },
+
   },
   { timestamps: true }
 );

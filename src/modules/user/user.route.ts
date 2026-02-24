@@ -13,5 +13,9 @@ router.post("/profile", authenticate, upload.single("profileImage"), UserControl
 router.patch("/profile", authenticate, upload.single("profileImage"), UserController.patchProfile);
 router.patch("/profile/:userId", authenticate, upload.single("profileImage"), UserController.patchProfile);
 
+// endpoints for user to submit contact/support requests
+router.post("/profile/contact", authenticate, UserController.submitContact);
+router.post("/profile/support", authenticate, UserController.submitSupport);
+
 
 export const UserRoutes = router;

@@ -22,4 +22,11 @@ export interface IUserProfile {
   targetDate?: Date;
   goalDescription?: string;
   
-}
+  // contact/support requests stored on profile
+  contact?: {
+    fullName?: string;
+    email?: string;
+    description?: string;
+  };
+ 
+} 

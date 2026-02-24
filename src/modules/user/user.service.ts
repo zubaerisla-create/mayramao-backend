@@ -64,6 +64,9 @@ const patchProfile = async (userId: string, data: Partial<IUserProfile>) => {
   if (typeof data.targetDate !== 'undefined') set['targetDate'] = data.targetDate;
   if (typeof data.goalDescription !== 'undefined') set['goalDescription'] = data.goalDescription;
 
+  // contact/support objects
+  if (typeof data.contact !== 'undefined') set['contact'] = data.contact;
+
   if (Object.keys(set).length === 0) {
     // nothing to update
     return await UserProfile.findOne({ userId });
