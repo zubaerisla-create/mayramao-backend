@@ -2,6 +2,11 @@ import bcrypt from "bcrypt";
 import { Admin } from "./admin.model";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwtToken";
 
+// for admin user management
+import { Auth } from "../auth/auth.model";
+import { UserProfile } from "../user/user.model";
+import { Types } from "mongoose";
+
 const adminLogin = async (email: string, password: string) => {
   // Validate input
   if (!email || !password) {
@@ -29,11 +34,13 @@ const adminLogin = async (email: string, password: string) => {
   const accessToken = generateAccessToken({
     id: admin._id.toString(),
     email: admin.email,
+    role: admin.role,
   });
 
   const refreshToken = generateRefreshToken({
     id: admin._id.toString(),
     email: admin.email,
+    role: admin.role,
   });
 
   return {
@@ -158,6 +165,77 @@ const resetPassword = async (email: string, otp: string, newPassword: string) =>
   return { message: "Password reset successfully" };
 };
 
+
+// ---------------------------------------------------------------------------
+// functions used by the /admin/users routes
+// ---------------------------------------------------------------------------
+
+const getAllUsers = async () => {
+  // fetch all auth records without passwords
+  const users = await Auth.find().select("-password").lean();
+
+  // gather profiles in a single query
+  const ids = users.map((u) => u._id);
+  const profiles = await UserProfile.find({ userId: { $in: ids } }).lean();
+  const profileMap: Record<string, any> = {};
+  profiles.forEach((p) => {
+    profileMap[p.userId.toString()] = p;
+  });
+
+  return users.map((u) => ({ ...u, profile: profileMap[u._id.toString()] || null }));
+};
+
+const getUserById = async (userId: string) => {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID");
+  }
+  const user = await Auth.findById(userId).select("-password").lean();
+  if (!user) {
+    throw new Error("User not found");
+  }
+  const profile = await UserProfile.findOne({ userId }).lean();
+  return { ...user, profile: profile || null };
+};
+
+// ---------------------------------------------------------------------------
+// functions used by superadmin for admin management
+// ---------------------------------------------------------------------------
+
+const getAllAdmins = async () => {
+  const admins = await Admin.find().select("-password").lean();
+  return admins;
+};
+
+// allow an admin to update their own password
+const changePassword = async (
+  adminId: string,
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+) => {
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new Error("All password fields are required");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new Error("New password and confirmation do not match");
+  }
+
+  const admin = await Admin.findById(adminId);
+  if (!admin) {
+    throw new Error("Admin not found");
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, admin.password);
+  if (!isMatch) {
+    throw new Error("Current password is incorrect");
+  }
+
+  admin.password = await bcrypt.hash(newPassword, 10);
+  await admin.save();
+  return { message: "Password updated successfully" };
+};
+
 export const AdminService = {
   adminLogin,
   createAdmin,
@@ -166,4 +244,14 @@ export const AdminService = {
   forgotPassword,
   resendOTP,
   resetPassword,
+
+  // user management
+  getAllUsers,
+  getUserById,
+
+  // superadmin admin management
+  getAllAdmins,
+
+  // password change
+  changePassword,
 };

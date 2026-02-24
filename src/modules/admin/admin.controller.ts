@@ -7,6 +7,7 @@ export interface AdminRequest extends Request {
   admin?: {
     id: string;
     email: string;
+    role?: string;
   };
 }
 
@@ -53,6 +54,7 @@ const refreshToken = async (req: Request, res: Response) => {
     const newAccessToken = generateAccessToken({
       id: payload.id,
       email: payload.email,
+      role: (payload as any).role,
     });
 
     res.status(200).json({
@@ -91,6 +93,78 @@ const getProfile = async (req: AdminRequest, res: Response) => {
       success: false,
       message: error.message || "Failed to get profile",
     });
+  }
+};
+
+// admin-facing user management
+const getAllUsers = async (req: AdminRequest, res: Response) => {
+  try {
+    const users = await AdminService.getAllUsers();
+    res.status(200).json({ success: true, users });
+  } catch (error: any) {
+    console.error("Get all users error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to fetch users" });
+  }
+};
+
+// superadmin-facing admin management
+const getAllAdmins = async (req: AdminRequest, res: Response) => {
+  try {
+    const admins = await AdminService.getAllAdmins();
+    res.status(200).json({ success: true, admins });
+  } catch (error: any) {
+    console.error("Get all admins error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to fetch admins" });
+  }
+};
+
+const getAdminInfo = async (req: AdminRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Admin ID is required" });
+    }
+    const admin = await AdminService.getAdminById(id);
+    res.status(200).json({ success: true, admin });
+  } catch (error: any) {
+    console.error("Get admin by ID error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to fetch admin" });
+  }
+};
+
+const getUserById = async (req: AdminRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    const user = await AdminService.getUserById(id);
+    res.status(200).json({ success: true, user });
+  } catch (error: any) {
+    console.error("Get user by ID error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to fetch user" });
+  }
+};
+
+// allow admin to change own password
+const changePassword = async (req: AdminRequest, res: Response) => {
+  try {
+    const adminId = req.admin?.id;
+    if (!adminId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // ensure body exists before destructuring
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    const result = await AdminService.changePassword(adminId, currentPassword, newPassword, confirmPassword);
+    res.status(200).json({ success: true, ...result });
+  } catch (error: any) {
+    console.error("Admin change password error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to change password" });
   }
 };
 
@@ -144,6 +218,18 @@ export const AdminController = {
   login,
   refreshToken,
   getProfile,
+
+  // user management
+  getAllUsers,
+  getUserById,
+
+  // superadmin admin management
+  getAllAdmins,
+  getAdminInfo,
+
+  // password updates
+  changePassword,
+
   forgotPassword,
   resendOTP,
   resetPassword,

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../utils/jwtToken";
 import { Admin } from "../modules/admin/admin.model";
 
-export interface AdminRequest extends Request {
+export interface SuperAdminRequest extends Request {
   admin?: {
     id: string;
     email: string;
@@ -10,7 +10,12 @@ export interface AdminRequest extends Request {
   };
 }
 
-export const adminAuthMiddleware = async (req: AdminRequest, res: Response, next: NextFunction) => {
+// middleware that ensures caller is a valid admin and has role "superadmin"
+export const superAdminAuthMiddleware = async (
+  req: SuperAdminRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -21,30 +26,23 @@ export const adminAuthMiddleware = async (req: AdminRequest, res: Response, next
       });
     }
 
-    const token = authHeader.slice(7); // Remove "Bearer " prefix
+    const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
 
-    // load admin from database to attach role and check account state
+    // fetch admin to verify role and existence
     const admin = await Admin.findById(payload.id).lean();
     if (!admin) {
       return res.status(401).json({ success: false, message: "Admin not found" });
     }
-    if (!admin.isActive) {
-      return res.status(403).json({ success: false, message: "Admin account is inactive" });
+
+    if (admin.role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Forbidden: superadmin only" });
     }
 
-    req.admin = {
-      id: payload.id,
-      email: payload.email,
-      role: admin.role,
-    };
-
+    req.admin = { id: payload.id, email: payload.email, role: admin.role };
     next();
   } catch (error: any) {
-    console.error("Admin auth middleware error:", error);
-    res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-    });
+    console.error("Super admin auth error:", error);
+    res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };
