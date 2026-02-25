@@ -5,7 +5,7 @@ export interface ISubscription {
   planType: string; // e.g. "monthly", "yearly" etc.
   price: number;
   duration: number; // in days
-  simulationsLimit: number | string;
+  simulationsLimit: number ;
   simulationsUnlimited?: boolean;
   features: string[];
   isActive: boolean;
