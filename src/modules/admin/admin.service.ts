@@ -198,6 +198,102 @@ const getUserById = async (userId: string) => {
 };
 
 // ---------------------------------------------------------------------------
+// subscription related utilities for admins
+// ---------------------------------------------------------------------------
+
+const extendUserSubscription = async (userId: string, extraDays: number) => {
+  if (typeof extraDays !== 'number' || extraDays <= 0) {
+    throw new Error("`extraDays` must be a positive number");
+  }
+
+  const profile = await UserProfile.findOne({ userId });
+  if (!profile) throw new Error("User profile not found");
+  if (!profile.subscription || !profile.subscription.isActive) {
+    throw new Error("User does not have an active subscription");
+  }
+
+  // if there is a Stripe subscription, update its trial_end to push out
+  // the next invoice by `extraDays` days (free extension)
+  if (profile.subscription.stripeSubscriptionId) {
+    const stripe = await import("../../config/stripe").then((m) => m.default);
+    const currentExpiry = profile.subscription.expiresAt || new Date();
+    const anchor = Math.floor(currentExpiry.getTime() / 1000);
+    const newTrialEnd = anchor + extraDays * 24 * 60 * 60;
+    await stripe.subscriptions.update(profile.subscription.stripeSubscriptionId, {
+      trial_end: newTrialEnd,
+      proration_behavior: 'none',
+    });
+  }
+
+  const now = new Date();
+  let currentExpiry = profile.subscription.expiresAt || now;
+  if (currentExpiry < now) currentExpiry = now;
+  const newExpiry = new Date(currentExpiry.getTime() + extraDays * 24 * 60 * 60 * 1000);
+  profile.subscription.expiresAt = newExpiry;
+  await profile.save();
+  return profile.subscription;
+};
+
+const downgradeUserSubscription = async (userId: string) => {
+  const profile = await UserProfile.findOne({ userId });
+  if (!profile) throw new Error("User profile not found");
+
+  // if a Stripe subscription exists, cancel it immediately
+  if (profile.subscription?.stripeSubscriptionId) {
+    const stripe = await import("../../config/stripe").then((m) => m.default);
+    try {
+      await stripe.subscriptions.del(profile.subscription.stripeSubscriptionId);
+    } catch (err) {
+      console.warn("Failed to cancel Stripe subscription during downgrade", err);
+    }
+  }
+
+  // clear subscription details and mark inactive
+  profile.subscription = {
+    planId: null,
+    planName: "",
+    startedAt: null,
+    expiresAt: null,
+    stripeCustomerId: "",
+    stripeSubscriptionId: "",
+    stripePriceId: "",
+    stripePaymentIntentId: "",
+    stripeChargeId: "",
+    isActive: false,
+  } as any;
+  // also reset top-level planName so UI shows free
+  profile.planName = "";
+  await profile.save();
+  return profile.subscription;
+};
+
+const cancelUserSubscription = async (userId: string) => {
+  const profile = await UserProfile.findOne({ userId });
+  if (!profile) throw new Error("User profile not found");
+  if (!profile.subscription || !profile.subscription.isActive) {
+    throw new Error("User does not have an active subscription");
+  }
+
+  if (profile.subscription.stripeSubscriptionId) {
+    const stripe = await import("../../config/stripe").then((m) => m.default);
+    // cancel immediately
+    try {
+      await stripe.subscriptions.del(profile.subscription.stripeSubscriptionId, {
+        invoice_now: false,
+        prorate: false,
+      });
+    } catch (err) {
+      console.warn("Failed to cancel Stripe subscription", err);
+    }
+  }
+
+  profile.subscription.expiresAt = new Date();
+  profile.subscription.isActive = false;
+  await profile.save();
+  return profile.subscription;
+};
+
+// ---------------------------------------------------------------------------
 // functions used by superadmin for admin management
 // ---------------------------------------------------------------------------
 
@@ -248,6 +344,11 @@ export const AdminService = {
   // user management
   getAllUsers,
   getUserById,
+
+  // subscription control (admin only)
+  extendUserSubscription,
+  downgradeUserSubscription,
+  cancelUserSubscription,
 
   // superadmin admin management
   getAllAdmins,

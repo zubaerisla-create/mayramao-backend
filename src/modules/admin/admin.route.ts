@@ -20,6 +20,23 @@ router.get("/profile", adminAuthMiddleware, AdminController.getProfile);
 router.get("/users", adminAuthMiddleware, AdminController.getAllUsers);
 router.get("/users/:id", adminAuthMiddleware, AdminController.getUserById);
 
+// admin subscription management for individual users
+router.put(
+  "/users/:id/subscription/extend",
+  adminAuthMiddleware,
+  AdminController.extendUserSubscription
+);
+router.put(
+  "/users/:id/subscription/downgrade",
+  adminAuthMiddleware,
+  AdminController.downgradeUserSubscription
+);
+router.put(
+  "/users/:id/subscription/cancel",
+  adminAuthMiddleware,
+  AdminController.cancelUserSubscription
+);
+
 // admin profile updates
 router.put("/change-password", adminAuthMiddleware, AdminController.changePassword);
 

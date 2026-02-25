@@ -12,7 +12,11 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
     dateOfBirth: { type: Date, default: null },
     gender: { type: String, default: "" },
     monthlyIncome: { type: Number, default: 0 },
-    fixedExpenses: { type: Number, default: 0 },
+    fixedExpenses: {
+      rent: { type: Number, default: 0 },
+      utilities: { type: Number, default: 0 },
+      subscriptionsInsurance: { type: Number, default: 0 },
+    },
     variableExpenses: { type: Number, default: 0 },
     existingLoans: { type: Number, default: 0 },
     totalMonthlyLoanPayments: { type: Number, default: 0 },
@@ -28,6 +32,14 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
     targetDate: { type: Date, default: null },
     goalDescription: { type: String, default: "" },
 
+    // purchase simulation info
+    purchaseSimulation: {
+      purchaseAmount: { type: Number, default: 0 },
+      paymentType: { type: String, default: "PayInFull" },
+      loanDuration: { type: Number, default: 0 },
+      interestRate: { type: Number, default: 0 },
+    },
+
     // contact and support objects
     contact: {
       fullName: { type: String, default: "" },
@@ -41,6 +53,9 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
       planName: { type: String, default: "" },
       startedAt: { type: Date, default: null },
       expiresAt: { type: Date, default: null },
+      stripeCustomerId: { type: String, default: "" },
+      stripeSubscriptionId: { type: String, default: "" },
+      stripePriceId: { type: String, default: "" },
       stripePaymentIntentId: { type: String, default: "" },
       stripeChargeId: { type: String, default: "" },
       isActive: { type: Boolean, default: false },

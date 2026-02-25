@@ -6,7 +6,7 @@ import { AuthRequest } from "../../middleware/authMiddleware";
 // add a new subscription plan (admin only)
 const addSubscription = async (req: AdminRequest, res: Response) => {
   try {
-    const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, features, activePlan } = req.body || {};
+    const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, features, activePlan, stripePriceId } = req.body || {};
     if (!planName || !planType || price == null || duration == null) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
@@ -23,6 +23,7 @@ const addSubscription = async (req: AdminRequest, res: Response) => {
       simulationsLimit,
       features,
       activePlan,
+      stripePriceId,
     });
 
     res.status(201).json({ success: true, subscription: sub });
@@ -114,12 +115,12 @@ const purchaseSubscription = async (req: AuthRequest, res: Response) => {
     }
 
     // delegate the heavy lifting to service layer
-    const paymentIntent = await SubscriptionService.purchaseSubscription(userId, planId, {
+    const subscription = await SubscriptionService.purchaseSubscription(userId, planId, {
       cardHolderName,
       paymentMethodId,
     });
 
-    res.status(200).json({ success: true, paymentIntent });
+    res.status(200).json({ success: true, subscription });
   } catch (err: any) {
     console.error("Purchase subscription error:", err);
     res.status(400).json({ success: false, message: err.message || "Failed to complete purchase" });
@@ -127,6 +128,43 @@ const purchaseSubscription = async (req: AuthRequest, res: Response) => {
 };
 
 // return publishable key for front end
+// webhook endpoint for Stripe events (may need raw body handling)
+const stripeWebhook = async (req: Request, res: Response) => {
+  const sig = req.headers["stripe-signature"] as string;
+  let event: any;
+
+  try {
+    const stripe = await import("../../config/stripe").then((m) => m.default);
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // handle relevant events
+  switch (event.type) {
+    case "invoice.payment_succeeded":
+    case "customer.subscription.updated": {
+      const subscription: any = event.data.object;
+      // update local profile if subscribed
+      const { UserProfile } = await import("../user/user.model");
+      const profile = await UserProfile.findOne({ "subscription.stripeSubscriptionId": subscription.id });
+      if (profile && profile.subscription) {
+        profile.subscription.expiresAt = new Date((subscription.current_period_end || 0) * 1000);
+        profile.subscription.isActive = !subscription.cancel_at_period_end && subscription.status === "active";
+        await profile.save();
+      }
+      break;
+    }
+    // other event types can be handled here if needed
+    default:
+      // console.log(`Unhandled event type ${event.type}`);
+      break;
+  }
+
+  res.json({ received: true });
+};
+
 const getStripeKey = async (_req: Request, res: Response) => {
   res.status(200).json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "" });
 };
@@ -139,4 +177,5 @@ export const SubscriptionController = {
   removeSubscription,
   purchaseSubscription,
   getStripeKey,
+  stripeWebhook,
 };

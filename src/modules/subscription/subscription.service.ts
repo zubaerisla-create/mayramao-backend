@@ -8,12 +8,16 @@ interface CreateSubscriptionDto {
   simulationsUnlimited?: boolean;
   simulationsLimit?: number;
   features?: string[];
-  activePlan?:boolean;
+  activePlan?: boolean;
+  /**
+   * price ID in Stripe for recurring billing; optional for one‑time plans
+   */
+  stripePriceId?: string;
 }
 
 const createSubscription = async (data: CreateSubscriptionDto) => {
   // basic validation
-  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit } = data;
+  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, stripePriceId } = data;
   if (!planName || !planType || price == null || duration == null) {
     throw new Error("All required fields must be provided");
   }
@@ -30,6 +34,7 @@ const createSubscription = async (data: CreateSubscriptionDto) => {
     ...data,
     features: data.features || [],
     simulationsUnlimited: data.simulationsUnlimited || false,
+    stripePriceId: stripePriceId || "",
   });
 
   await sub.save();
@@ -63,6 +68,7 @@ const updateSubscription = async (
   if (typeof updates.simulationsLimit !== 'undefined') sub.simulationsLimit = updates.simulationsLimit;
   if (Array.isArray(updates.features)) sub.features = updates.features;
   if (typeof updates.activePlan !== 'undefined') sub.activePlan = updates.activePlan;
+  if (typeof updates.stripePriceId !== 'undefined') sub.stripePriceId = updates.stripePriceId || "";
 
   await sub.save();
   return sub.toObject();
@@ -110,72 +116,91 @@ const purchaseSubscription = async (
     throw new Error("Selected plan is not available");
   }
 
-  // dynamic import stripe here to avoid circular dependency
   const stripe = await import("../../config/stripe").then((mod) => mod.default);
-  const amount = Math.round(plan.price * 100);
-  // build base options for the intent
-  const intentData: any = {
-    amount,
-    currency: "usd",
-    description: `Subscription purchase for plan ${plan.planName}${payment.cardHolderName ? ` (cardholder: ${payment.cardHolderName})` : ""}`,
-    metadata: {
-      planId: planId.toString(),
-      planName: plan.planName,
-      cardHolderName: payment.cardHolderName || "",
-      userId,
-    },
-    confirm: true,
-  };
+  const { UserService } = await import("../user/user.service");
 
+  // grab user profile to use email and existing stripe IDs
+  const profile = await UserService.getProfile(userId);
+  if (!profile) {
+    throw new Error("User profile not found");
+  }
+
+  // create or retrieve customer
+  let customerId = profile.subscription?.stripeCustomerId;
+  if (!customerId) {
+    const customer = await stripe.customers.create({
+      email: profile.email || undefined,
+      metadata: { userId },
+    });
+    customerId = customer.id;
+  }
+
+  // attach payment method if provided
   if (payment.paymentMethodId) {
-    // normal path: frontend already created a payment method or token
-    intentData.payment_method = payment.paymentMethodId;
+    try {
+      await stripe.paymentMethods.attach(payment.paymentMethodId, { customer: customerId });
+    } catch (err: any) {
+      // if the method is already attached stripe throws, ignore
+      if (!/already attached/.test(err.message)) {
+        throw err;
+      }
+    }
+    await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: payment.paymentMethodId },
+    });
   } else if (
     payment.cardNumber &&
     payment.expMonth &&
     payment.expYear &&
     payment.cvc
   ) {
-    // legacy fallback – still sends raw card data, which will trigger the
-    // warning e‑mail you received. Only keep this around if you absolutely
-    // must; otherwise drop it and require a paymentMethodId.
-    intentData.payment_method_data = {
-      type: "card",
+    // create a card token and attach as source
+    const token = await stripe.tokens.create({
       card: {
         number: payment.cardNumber,
         exp_month: payment.expMonth,
         exp_year: payment.expYear,
         cvc: payment.cvc,
       },
-    } as any;
-  } else {
-    throw new Error("No payment information provided");
+    } as any);
+    await stripe.customers.update(customerId, { source: token.id });
+    // don't set default_payment_method – Stripe will use default source
   }
 
-  const paymentIntent = await stripe.paymentIntents.create(intentData);
-
-  if (paymentIntent.status !== "succeeded") {
-    throw new Error("Payment failed");
+  if (!plan.stripePriceId) {
+    throw new Error("This plan does not have an associated Stripe price ID");
   }
 
-  // compute timeframe
-  const startedAt = new Date();
-  const expiresAt = new Date(startedAt.getTime() + plan.duration * 24 * 60 * 60 * 1000);
+  // create a recurring subscription
+  const subscription = await stripe.subscriptions.create({
+    customer: customerId,
+    items: [{ price: plan.stripePriceId }],
+    default_payment_method: payment.paymentMethodId || undefined,
+    expand: ["latest_invoice.payment_intent"],
+    metadata: {
+      planId: planId.toString(),
+      planName: plan.planName,
+      userId,
+    },
+  });
 
-  // update profile via UserService
-  const { UserService } = await import("../user/user.service");
+  const startedAt = new Date(subscription.current_period_start * 1000);
+  const expiresAt = new Date(subscription.current_period_end * 1000);
+
   await UserService.patchProfile(userId, {
     subscription: {
       planId,
       planName: plan.planName,
       startedAt,
       expiresAt,
-      stripePaymentIntentId: paymentIntent.id,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      stripePriceId: plan.stripePriceId,
       isActive: true,
     },
   });
 
-  return paymentIntent;
+  return subscription;
 };
 
 export const SubscriptionService = {

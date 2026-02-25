@@ -13,6 +13,7 @@ router.get("/:id", SubscriptionController.getSubscription);
 router.post("/purchase", authenticate, SubscriptionController.purchaseSubscription);
 router.get("/stripe-key", SubscriptionController.getStripeKey);
 
+
 // admin-only
 router.post("/", adminAuthMiddleware, SubscriptionController.addSubscription);
 router.put("/:id", adminAuthMiddleware, SubscriptionController.editSubscription);

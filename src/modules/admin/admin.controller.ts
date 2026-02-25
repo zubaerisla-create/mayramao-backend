@@ -146,6 +146,50 @@ const getUserById = async (req: AdminRequest, res: Response) => {
   }
 };
 
+// admin subscription management helpers
+const extendUserSubscription = async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = req.params.id as string;
+    const { extraDays } = req.body || {};
+    if (!userId || typeof extraDays !== 'number') {
+      return res.status(400).json({ success: false, message: "User ID and positive extraDays number are required" });
+    }
+    const subscription = await AdminService.extendUserSubscription(userId, extraDays);
+    res.status(200).json({ success: true, subscription });
+  } catch (error: any) {
+    console.error("Extend subscription error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to extend subscription" });
+  }
+};
+
+const downgradeUserSubscription = async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = req.params.id as string;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    const subscription = await AdminService.downgradeUserSubscription(userId);
+    res.status(200).json({ success: true, subscription });
+  } catch (error: any) {
+    console.error("Downgrade subscription error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to downgrade subscription" });
+  }
+};
+
+const cancelUserSubscription = async (req: AdminRequest, res: Response) => {
+  try {
+    const userId = req.params.id as string;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    const subscription = await AdminService.cancelUserSubscription(userId);
+    res.status(200).json({ success: true, subscription });
+  } catch (error: any) {
+    console.error("Cancel subscription error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to cancel subscription" });
+  }
+};
+
 // allow admin to change own password
 const changePassword = async (req: AdminRequest, res: Response) => {
   try {
@@ -222,6 +266,9 @@ export const AdminController = {
   // user management
   getAllUsers,
   getUserById,
+  extendUserSubscription,
+  downgradeUserSubscription,
+  cancelUserSubscription,
 
   // superadmin admin management
   getAllAdmins,

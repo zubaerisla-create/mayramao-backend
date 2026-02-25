@@ -63,7 +63,7 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     data.email = authUser.email; // set email from authenticated user
 
     // validate and coerce numeric fields
-    ['monthlyIncome','fixedExpenses','existingLoans','totalMonthlyLoanPayments','currentSavings','variableExpenses', 'targetAmount'].forEach(k => {
+    ['monthlyIncome','existingLoans','totalMonthlyLoanPayments','currentSavings','variableExpenses','targetAmount'].forEach(k => {
       if (typeof data[k] !== 'undefined') {
         const n = Number(data[k]);
         if (!Number.isFinite(n)) {
@@ -72,6 +72,57 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
         data[k] = n;
       }
     });
+    // handle fixedExpenses object
+    if (typeof data.fixedExpenses !== 'undefined') {
+      if (typeof data.fixedExpenses === 'number') {
+        // legacy numeric value becomes rent
+        data.fixedExpenses = { rent: Number(data.fixedExpenses) };
+      } else if (typeof data.fixedExpenses === 'object' && data.fixedExpenses !== null) {
+        const fe: any = {};
+        ['rent','utilities','subscriptionsInsurance'].forEach((sub) => {
+          if (typeof (data.fixedExpenses as any)[sub] !== 'undefined') {
+            const n = Number((data.fixedExpenses as any)[sub]);
+            if (!Number.isFinite(n)) {
+              throw new Error(`fixedExpenses.${sub} must be a valid number`);
+            }
+            fe[sub] = n;
+          }
+        });
+        data.fixedExpenses = fe;
+      } else {
+        throw new Error('fixedExpenses must be a number or object');
+      }
+    }
+    // handle purchaseSimulation fields
+    if (typeof data.purchaseSimulation !== 'undefined') {
+      const sim = data.purchaseSimulation as any;
+      const simObj: any = {};
+      if (typeof sim.purchaseAmount !== 'undefined') {
+        const n = Number(sim.purchaseAmount);
+        if (!Number.isFinite(n)) throw new Error('purchaseSimulation.purchaseAmount must be a number');
+        simObj.purchaseAmount = n;
+      }
+      if (typeof sim.paymentType !== 'undefined') {
+        const pt = String(sim.paymentType);
+        if (pt !== 'PayInFull' && pt !== 'Financing') {
+          throw new Error('purchaseSimulation.paymentType must be PayInFull or Financing');
+        }
+        simObj.paymentType = pt;
+      }
+      if (simObj.paymentType === 'Financing') {
+        if (typeof sim.loanDuration !== 'undefined') {
+          const n = Number(sim.loanDuration);
+          if (!Number.isFinite(n)) throw new Error('purchaseSimulation.loanDuration must be a number');
+          simObj.loanDuration = n;
+        }
+        if (typeof sim.interestRate !== 'undefined') {
+          const n = Number(sim.interestRate);
+          if (!Number.isFinite(n)) throw new Error('purchaseSimulation.interestRate must be a number');
+          simObj.interestRate = n;
+        }
+      }
+      data.purchaseSimulation = simObj;
+    }
 
     // validate string fields
     if (typeof data.fullName !== 'undefined') {
@@ -197,7 +248,19 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
     }
     if (typeof body.fixedExpenses !== 'undefined') {
       console.log('setting fixedExpenses:', body.fixedExpenses);
-      allowed.fixedExpenses = toNum(body.fixedExpenses, 'fixedExpenses');
+      if (typeof body.fixedExpenses === 'number') {
+        allowed.fixedExpenses = { rent: toNum(body.fixedExpenses, 'fixedExpenses') };
+      } else if (typeof body.fixedExpenses === 'object' && body.fixedExpenses !== null) {
+        const fe: any = {};
+        ['rent','utilities','subscriptionsInsurance'].forEach((sub) => {
+          if (typeof (body.fixedExpenses as any)[sub] !== 'undefined') {
+            fe[sub] = toNum((body.fixedExpenses as any)[sub], `fixedExpenses.${sub}`);
+          }
+        });
+        allowed.fixedExpenses = fe;
+      } else {
+        throw new Error('fixedExpenses must be a number or object');
+      }
     }
     if (typeof body.existingLoans !== 'undefined') {
       console.log('setting existingLoans:', body.existingLoans);
@@ -230,6 +293,31 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
       allowed.goalDescription = String(body.goalDescription);
     }
 
+    // purchase simulation fields
+    if (typeof body.purchaseSimulation !== 'undefined') {
+      const sim = body.purchaseSimulation;
+      const simAllowed: any = {};
+      if (typeof sim.purchaseAmount !== 'undefined') {
+        simAllowed.purchaseAmount = toNum(sim.purchaseAmount, 'purchaseSimulation.purchaseAmount');
+      }
+      if (typeof sim.paymentType !== 'undefined') {
+        const pt = String(sim.paymentType);
+        if (pt !== 'PayInFull' && pt !== 'Financing') {
+          throw new Error('paymentType must be PayInFull or Financing');
+        }
+        simAllowed.paymentType = pt as any;
+      }
+      if (simAllowed.paymentType === 'Financing') {
+        if (typeof sim.loanDuration !== 'undefined') {
+          simAllowed.loanDuration = toNum(sim.loanDuration, 'purchaseSimulation.loanDuration');
+        }
+        if (typeof sim.interestRate !== 'undefined') {
+          simAllowed.interestRate = toNum(sim.interestRate, 'purchaseSimulation.interestRate');
+        }
+      }
+      allowed.purchaseSimulation = simAllowed;
+    }
+
     // contact/support objects
     if (typeof body.contact !== 'undefined') {
       console.log('setting contact:', body.contact);
@@ -255,6 +343,7 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
+
 // helpers to submit a simple contact/support object without other profile changes
 const submitContact = async (req: AuthRequest, res: Response) => {
   try {
@@ -265,7 +354,7 @@ const submitContact = async (req: AuthRequest, res: Response) => {
     if (!fullName || !email || !description) {
       return res.status(400).json({ success: false, message: "fullName, email and description are required" });
     }
-
+  
     const update = { contact: { fullName, email, description } };
     const profile = await UserService.patchProfile(tokenId, update as any);
 
@@ -278,6 +367,8 @@ const submitContact = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, message: error.message || "Internal server error" });
   }
 };
+
+
 
 const submitSupport = async (req: AuthRequest, res: Response) => {
   try {

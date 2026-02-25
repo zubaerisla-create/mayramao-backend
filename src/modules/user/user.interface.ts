@@ -8,7 +8,12 @@ export interface IUserProfile {
   dateOfBirth?: Date;
   gender?: string;
   monthlyIncome?: number;
-  fixedExpenses?: number;
+  // breakdown of fixed monthly costs
+  fixedExpenses?: {
+    rent?: number;
+    utilities?: number;
+    subscriptionsInsurance?: number;
+  };
   existingLoans?: number;
   totalMonthlyLoanPayments?: number;
   variableExpenses?: number;
@@ -21,7 +26,15 @@ export interface IUserProfile {
   targetAmount?: number;
   targetDate?: Date;
   goalDescription?: string;
-  
+
+  // purchase simulation information (for frontend calculator)
+  purchaseSimulation?: {
+    purchaseAmount?: number;
+    paymentType?: "PayInFull" | "Financing";
+    loanDuration?: number;       // months, only if Financing
+    interestRate?: number;       // percent, only if Financing
+  };
+
   // contact/support requests stored on profile
   contact?: {
     fullName?: string;
@@ -35,7 +48,10 @@ export interface IUserProfile {
     planName?: string;
     startedAt?: Date;
     expiresAt?: Date;
-    stripePaymentIntentId?: string;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    stripePriceId?: string;
+    stripePaymentIntentId?: string; // kept for legacy one‑time flows
     stripeChargeId?: string;
     isActive?: boolean;
   };

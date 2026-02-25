@@ -4,12 +4,14 @@ export interface ISubscription {
   planName: string;
   planType: string; // e.g. "monthly", "yearly" etc.
   price: number;
-  duration: number; // in days
+  duration: number; // in days (used for non-recurring or display purposes)
   simulationsLimit: number ;
   simulationsUnlimited?: boolean;
   features: string[];
   isActive: boolean;
   activePlan?: boolean; // whether this plan is currently selected/active
+  // for Stripe recurring subscriptions we store the associated price ID
+  stripePriceId?: string;
 }
 
 export interface ISubscriptionDocument extends ISubscription, Document {}
@@ -25,6 +27,7 @@ const subscriptionSchema = new Schema<ISubscriptionDocument>(
     features: { type: [String], default: [] },
     isActive: { type: Boolean, default: true },
     activePlan: { type: Boolean, default: false },
+    stripePriceId: { type: String, default: "" },
   },
   { timestamps: true }
 );
