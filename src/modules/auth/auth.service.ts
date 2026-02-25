@@ -70,6 +70,7 @@ const loginUser = async (email: string, password: string) => {
   const user = await Auth.findOne({ email });
   if (!user) throw new Error("User not found");
   if (!user.verified) throw new Error("Please verify your email first");
+  if (user.isActive === false) throw new Error("Account is blocked");
 
   const match = await bcrypt.compare(password, user.password);
   if (!match) throw new Error("Incorrect password");

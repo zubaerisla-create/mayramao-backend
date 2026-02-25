@@ -5,5 +5,7 @@ export interface IAuth {
   otp?: string;
   otpExpires?: Date;
   verified: boolean;
+  // account status (can be toggled by admin)
+  isActive?: boolean;
 }
 

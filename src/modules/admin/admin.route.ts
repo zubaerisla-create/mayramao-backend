@@ -19,6 +19,8 @@ router.get("/profile", adminAuthMiddleware, AdminController.getProfile);
 // admin user management
 router.get("/users", adminAuthMiddleware, AdminController.getAllUsers);
 router.get("/users/:id", adminAuthMiddleware, AdminController.getUserById);
+// allow admin to activate/block a user
+router.put("/users/:id", adminAuthMiddleware, AdminController.updateUser);
 
 // admin subscription management for individual users
 router.put(
@@ -43,5 +45,6 @@ router.put("/change-password", adminAuthMiddleware, AdminController.changePasswo
 // superadmin admin management
 router.get("/admins", superAdminAuthMiddleware, AdminController.getAllAdmins);
 router.get("/admins/:id", superAdminAuthMiddleware, AdminController.getAdminInfo);
+router.put("/admins/:id", superAdminAuthMiddleware, AdminController.updateAdmin);
 
 export const AdminRoutes = router;

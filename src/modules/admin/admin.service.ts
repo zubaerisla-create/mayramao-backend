@@ -197,6 +197,21 @@ const getUserById = async (userId: string) => {
   return { ...user, profile: profile || null };
 };
 
+const updateUser = async (userId: string, updates: { isActive?: boolean }) => {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID");
+  }
+  const user = await Auth.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (typeof updates.isActive !== 'undefined') {
+    user.isActive = updates.isActive;
+  }
+  await user.save();
+  return { id: user._id, email: user.email, isActive: user.isActive };
+};
+
 // ---------------------------------------------------------------------------
 // subscription related utilities for admins
 // ---------------------------------------------------------------------------
@@ -344,6 +359,7 @@ export const AdminService = {
   // user management
   getAllUsers,
   getUserById,
+  updateUser,
 
   // subscription control (admin only)
   extendUserSubscription,

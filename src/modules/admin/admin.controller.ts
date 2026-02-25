@@ -132,6 +132,30 @@ const getAdminInfo = async (req: AdminRequest, res: Response) => {
   }
 };
 
+// allow superadmin to change admin status
+const updateAdmin = async (req: AdminRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const updates: any = req.body || {};
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Admin ID is required" });
+    }
+    // only allow certain fields
+    const allowed: any = {};
+    if (typeof updates.email !== 'undefined') allowed.email = String(updates.email);
+    if (typeof updates.password !== 'undefined') allowed.password = String(updates.password);
+    if (typeof updates.isActive !== 'undefined') allowed.isActive = Boolean(updates.isActive);
+    if (Object.keys(allowed).length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid fields to update' });
+    }
+    const admin = await AdminService.updateAdmin(id, allowed);
+    res.status(200).json({ success: true, admin });
+  } catch (error: any) {
+    console.error("Update admin error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to update admin" });
+  }
+};
+
 const getUserById = async (req: AdminRequest, res: Response) => {
   try {
     const id = req.params.id as string;
@@ -143,6 +167,24 @@ const getUserById = async (req: AdminRequest, res: Response) => {
   } catch (error: any) {
     console.error("Get user by ID error:", error);
     res.status(400).json({ success: false, message: error.message || "Failed to fetch user" });
+  }
+};
+
+const updateUser = async (req: AdminRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { isActive } = req.body || {};
+    if (!id) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    if (typeof isActive === 'undefined') {
+      return res.status(400).json({ success: false, message: "isActive field required" });
+    }
+    const user = await AdminService.updateUser(id, { isActive: Boolean(isActive) });
+    res.status(200).json({ success: true, user });
+  } catch (error: any) {
+    console.error("Update user error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to update user" });
   }
 };
 
@@ -266,6 +308,7 @@ export const AdminController = {
   // user management
   getAllUsers,
   getUserById,
+  updateUser,
   extendUserSubscription,
   downgradeUserSubscription,
   cancelUserSubscription,
@@ -273,6 +316,7 @@ export const AdminController = {
   // superadmin admin management
   getAllAdmins,
   getAdminInfo,
+  updateAdmin,
 
   // password updates
   changePassword,

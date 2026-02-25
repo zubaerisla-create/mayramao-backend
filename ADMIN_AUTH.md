@@ -172,6 +172,14 @@ Authorization: Bearer <accessToken>
 | POST | `/api/v1/admin/refresh-token` | No | Refresh access token |
 | GET | `/api/v1/admin/profile` | Yes | Get admin profile |
 
+### User Management (Admin only)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/admin/users` | List all users with profile info |
+| GET | `/api/v1/admin/users/:id` | Get single user and profile |
+| PUT | `/api/v1/admin/users/:id` | Activate or block a user (body: `{ isActive: true|false }`) |
+
 ## Token Details
 
 - **Access Token:** Expires in 15 minutes
