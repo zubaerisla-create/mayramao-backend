@@ -35,6 +35,16 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
       description: { type: String, default: "" },
     },
 
+    // subscription details (populated after successful purchase)
+    subscription: {
+      planId: { type: Schema.Types.ObjectId, ref: "Subscription", default: null },
+      planName: { type: String, default: "" },
+      startedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+      stripePaymentIntentId: { type: String, default: "" },
+      stripeChargeId: { type: String, default: "" },
+      isActive: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );

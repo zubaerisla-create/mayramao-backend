@@ -67,6 +67,15 @@ const patchProfile = async (userId: string, data: Partial<IUserProfile>) => {
   // contact/support objects
   if (typeof data.contact !== 'undefined') set['contact'] = data.contact;
 
+  // subscription object updates
+  if (typeof (data as any).subscription !== 'undefined') {
+    set['subscription'] = (data as any).subscription;
+    // also sync top‑level planName when subscription updated
+    if ((data as any).subscription?.planName) {
+      set['planName'] = (data as any).subscription.planName;
+    }
+  }
+
   if (Object.keys(set).length === 0) {
     // nothing to update
     return await UserProfile.findOne({ userId });

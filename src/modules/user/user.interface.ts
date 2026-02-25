@@ -28,5 +28,16 @@ export interface IUserProfile {
     email?: string;
     description?: string;
   };
+  
+  // subscription information (updated after purchase)
+  subscription?: {
+    planId?: string | Types.ObjectId;
+    planName?: string;
+    startedAt?: Date;
+    expiresAt?: Date;
+    stripePaymentIntentId?: string;
+    stripeChargeId?: string;
+    isActive?: boolean;
+  };
  
 } 

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { SubscriptionService } from "./subscription.service";
 import { AdminRequest } from "../admin/admin.controller"; // reuse interface
+import { AuthRequest } from "../../middleware/authMiddleware";
 
 // add a new subscription plan (admin only)
 const addSubscription = async (req: AdminRequest, res: Response) => {
@@ -87,10 +88,55 @@ const removeSubscription = async (req: AdminRequest, res: Response) => {
     res.status(400).json({ success: false, message: error.message || "Failed to delete subscription" });
   }
 };
+// purchase endpoint - authenticated users only
+// expects a paymentMethodId (or token) generated on the client side via
+// Stripe.js/Elements/Checkout. sending raw card details will cause Stripe
+// to reject the request in test mode and trigger the warning email you
+// saw.
+const purchaseSubscription = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const {
+      planId,
+      cardHolderName,
+      paymentMethodId,
+    } = req.body || {};
+
+    if (!planId || !paymentMethodId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing planId or paymentMethodId."
+      });
+    }
+
+    // delegate the heavy lifting to service layer
+    const paymentIntent = await SubscriptionService.purchaseSubscription(userId, planId, {
+      cardHolderName,
+      paymentMethodId,
+    });
+
+    res.status(200).json({ success: true, paymentIntent });
+  } catch (err: any) {
+    console.error("Purchase subscription error:", err);
+    res.status(400).json({ success: false, message: err.message || "Failed to complete purchase" });
+  }
+};
+
+// return publishable key for front end
+const getStripeKey = async (_req: Request, res: Response) => {
+  res.status(200).json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "" });
+};
+
 export const SubscriptionController = {
   addSubscription,
   listSubscriptions,
   getSubscription,
   editSubscription,
   removeSubscription,
+  purchaseSubscription,
+  getStripeKey,
 };
