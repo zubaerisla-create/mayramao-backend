@@ -5,16 +5,20 @@ interface CreateSubscriptionDto {
   planType: string;
   price: number;
   duration: number;
-  simulationsLimit: number;
+  simulationsUnlimited?: boolean;
+  simulationsLimit?: number;
   features?: string[];
   activePlan?:boolean;
 }
 
 const createSubscription = async (data: CreateSubscriptionDto) => {
   // basic validation
-  const { planName, planType, price, duration, simulationsLimit } = data;
-  if (!planName || !planType || price == null || duration == null || simulationsLimit == null) {
+  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit } = data;
+  if (!planName || !planType || price == null || duration == null) {
     throw new Error("All required fields must be provided");
+  }
+  if (!simulationsUnlimited && (simulationsLimit == null)) {
+    throw new Error("Either simulationsUnlimited must be true or a simulationsLimit number provided");
   }
 
   const existing = await Subscription.findOne({ planName });
@@ -25,6 +29,7 @@ const createSubscription = async (data: CreateSubscriptionDto) => {
   const sub = new Subscription({
     ...data,
     features: data.features || [],
+    simulationsUnlimited: data.simulationsUnlimited || false,
   });
 
   await sub.save();
@@ -54,6 +59,7 @@ const updateSubscription = async (
   if (typeof updates.planType !== 'undefined') sub.planType = updates.planType;
   if (typeof updates.price !== 'undefined') sub.price = updates.price;
   if (typeof updates.duration !== 'undefined') sub.duration = updates.duration;
+  if (typeof updates.simulationsUnlimited !== 'undefined') sub.simulationsUnlimited = updates.simulationsUnlimited;
   if (typeof updates.simulationsLimit !== 'undefined') sub.simulationsLimit = updates.simulationsLimit;
   if (Array.isArray(updates.features)) sub.features = updates.features;
   if (typeof updates.activePlan !== 'undefined') sub.activePlan = updates.activePlan;

@@ -5,9 +5,12 @@ import { AdminRequest } from "../admin/admin.controller"; // reuse interface
 // add a new subscription plan (admin only)
 const addSubscription = async (req: AdminRequest, res: Response) => {
   try {
-    const { planName, planType, price, duration, simulationsLimit, features, activePlan } = req.body || {};
-    if (!planName || !planType || price == null || duration == null || simulationsLimit == null) {
+    const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, features, activePlan } = req.body || {};
+    if (!planName || !planType || price == null || duration == null) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+    if (!simulationsUnlimited && (simulationsLimit == null)) {
+      return res.status(400).json({ success: false, message: "Must specify simulationsLimit or set simulationsUnlimited true" });
     }
 
     const sub = await SubscriptionService.createSubscription({
@@ -15,6 +18,7 @@ const addSubscription = async (req: AdminRequest, res: Response) => {
       planType,
       price,
       duration,
+      simulationsUnlimited,
       simulationsLimit,
       features,
       activePlan,

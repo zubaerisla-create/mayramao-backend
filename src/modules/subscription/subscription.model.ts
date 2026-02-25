@@ -6,6 +6,7 @@ export interface ISubscription {
   price: number;
   duration: number; // in days
   simulationsLimit: number;
+  simulationsUnlimited?: boolean;
   features: string[];
   isActive: boolean;
   activePlan?: boolean; // whether this plan is currently selected/active
@@ -20,6 +21,7 @@ const subscriptionSchema = new Schema<ISubscriptionDocument>(
     price: { type: Number, required: true },
     duration: { type: Number, required: true },
     simulationsLimit: { type: Number, required: true },
+    simulationsUnlimited: { type: Boolean, default: false },
     features: { type: [String], default: [] },
     isActive: { type: Boolean, default: true },
     activePlan: { type: Boolean, default: false },

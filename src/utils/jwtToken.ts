@@ -8,7 +8,7 @@ export interface ITokenPayload {
 
 export const generateAccessToken = (payload: ITokenPayload): string => {
   return jwt.sign(payload, process.env.JWT_SECRET || "your-secret-key", {
-    expiresIn: "15m",
+    expiresIn: "7d",
   });
 };
 
