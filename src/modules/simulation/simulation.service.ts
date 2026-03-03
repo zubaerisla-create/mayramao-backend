@@ -1,6 +1,6 @@
 import { Simulation } from "./simulation.model";
 import { UserProfile } from "../user/user.model";
-const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://929dkhqx-8000.inc1.devtunnels.ms/api/simulate/";
+const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "http://127.0.0.1:8000/api/simulate/";
 
 const runSimulationForUser = async (userId: string) => {
   // fetch profile

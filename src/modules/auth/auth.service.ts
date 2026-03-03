@@ -17,19 +17,19 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const registerUser = async (payload: IAuth) => {
   const existingUser = await Auth.findOne({ email: payload.email });
   if (existingUser) throw new Error("Email already registered");
-  
+
   // Check if pending registration exists
   const pendingUser = await PendingAuth.findOne({ email: payload.email });
   if (pendingUser) {
     await PendingAuth.deleteOne({ email: payload.email });
   }
-  
+
   const otp = generateOTP();
   const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-  
+
   // Hash password before storing
   const hashedPassword = await bcrypt.hash(payload.password, 10);
-  
+
   // Store in pending collection (not created in main Auth yet)
   const pendingData = await PendingAuth.create({
     ...payload,
@@ -37,19 +37,19 @@ const registerUser = async (payload: IAuth) => {
     otp,
     otpExpires,
   });
-  
+
   // Send email asynchronously (don't wait for it)
   sendOTPEmail(pendingData.email, otp).catch((err) => {
     console.error("Failed to send OTP email:", err);
   });
-  
+
   return { message: "OTP sent to your email. Check your inbox." };
 };
 
 const verifyOTP = async (email: string, otp: string) => {
   const pendingUser = await PendingAuth.findOne({ email });
   if (!pendingUser) throw new AppError("User not found. Please register first", 404);
-  
+
   if (pendingUser.otp !== otp) throw new AppError("Invalid OTP", 400);
   if (pendingUser.otpExpires < new Date()) throw new AppError("OTP expired", 400);
 
@@ -60,11 +60,31 @@ const verifyOTP = async (email: string, otp: string) => {
     password: pendingUser.password,
     verified: true,
   });
-  
+
   // Delete from pending collection
   await PendingAuth.deleteOne({ email });
 
-  return { message: "Verified successfully", user };
+  // Generate tokens
+  const accessToken = generateAccessToken({
+    id: user._id.toString(),
+    email: user.email,
+  });
+
+  const refreshToken = generateRefreshToken({
+    id: user._id.toString(),
+    email: user.email,
+  });
+
+  return {
+    message: "Verified successfully",
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    },
+    accessToken,
+    refreshToken,
+  };
 };
 
 const loginUser = async (email: string, password: string) => {
@@ -146,7 +166,7 @@ const googleLogin = async (idToken: string) => {
 
 const refreshAccessToken = async (refreshToken: string) => {
   const decoded = verifyRefreshToken(refreshToken);
-  
+
   const user = await Auth.findById(decoded.id);
   if (!user) throw new Error("User not found");
 
@@ -280,7 +300,7 @@ const confirmAccountDeletion = async (email: string, otp: string) => {
 const changePassword = async (userId: string, currentPassword: string, newPassword: string, confirmPassword: string) => {
   // Verify passwords match
   if (newPassword !== confirmPassword) throw new Error("New password and confirm password do not match");
-  
+
   // Ensure new password is different from current
   if (currentPassword === newPassword) throw new Error("New password must be different from current password");
 
