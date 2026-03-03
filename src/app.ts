@@ -7,6 +7,7 @@ import { SubscriptionRoutes } from "./modules/subscription/subscription.route";
 import { TicketRoutes } from "./modules/ticket/ticket.route";
 import { SimulationRoutes } from "./modules/simulation/simulation.route";
 import { SubscriptionController } from "./modules/subscription/subscription.controller";
+import { errorHandler } from "./middleware/errorHandler";
 
 const app = express()
 
@@ -33,6 +34,9 @@ app.use("/api/v1/simulations", SimulationRoutes);
 app.get("/",(req, res) => {
     res.send("Server is running....")
 });
+
+// global error handler (should be after all routes)
+app.use(errorHandler);
 
 export default app;
 

@@ -8,6 +8,7 @@ import { sendOTPEmail } from "../../config/mailer";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../../utils/jwtToken";
 import bcrypt from "bcrypt";
 import { IAuth } from "./auth.interface";
+import { AppError } from "../../utils/AppError";
 
 // google auth (requires npm package `google-auth-library`)
 import { OAuth2Client } from "google-auth-library";
@@ -47,10 +48,10 @@ const registerUser = async (payload: IAuth) => {
 
 const verifyOTP = async (email: string, otp: string) => {
   const pendingUser = await PendingAuth.findOne({ email });
-  if (!pendingUser) throw new Error("User not found. Please register first");
+  if (!pendingUser) throw new AppError("User not found. Please register first", 404);
   
-  if (pendingUser.otp !== otp) throw new Error("Invalid OTP");
-  if (pendingUser.otpExpires < new Date()) throw new Error("OTP expired");
+  if (pendingUser.otp !== otp) throw new AppError("Invalid OTP", 400);
+  if (pendingUser.otpExpires < new Date()) throw new AppError("OTP expired", 400);
 
   // Create user in main Auth collection
   const user = await Auth.create({
