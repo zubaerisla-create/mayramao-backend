@@ -17,7 +17,7 @@ const createSimulation = async (req: Request, res: Response) => {
 const getUserSimulations = async (req: Request, res: Response) => {
   const { userId } = req.params;
   try {
-    const sims = await SimulationService.getSimulationsByUser(userId);
+    const sims = await SimulationService.getSimulationsByUser(userId as string);
     return res.json({ success: true, simulations: sims });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message || 'fetch failed' });

@@ -1,6 +1,6 @@
 import { Simulation } from "./simulation.model";
 import { UserProfile } from "../user/user.model";
-const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://srzx6kv9-8000.inc1.devtunnels.ms/";
+const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-3.onrender.com/api/simulate/";
 
 const runSimulationForUser = async (userId: string) => {
   // fetch profile
