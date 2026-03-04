@@ -63,7 +63,7 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     data.email = authUser.email; // set email from authenticated user
 
     // validate and coerce numeric fields
-    ['monthlyIncome','existingLoans','totalMonthlyLoanPayments','currentSavings','variableExpenses','targetAmount'].forEach(k => {
+    ['monthlyIncome', 'existingLoans', 'totalMonthlyLoanPayments', 'currentSavings', 'variableExpenses', 'targetAmount'].forEach(k => {
       if (typeof data[k] !== 'undefined') {
         const n = Number(data[k]);
         if (!Number.isFinite(n)) {
@@ -79,7 +79,7 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
         data.fixedExpenses = { rent: Number(data.fixedExpenses) };
       } else if (typeof data.fixedExpenses === 'object' && data.fixedExpenses !== null) {
         const fe: any = {};
-        ['rent','utilities','subscriptionsInsurance'].forEach((sub) => {
+        ['rent', 'utilities', 'subscriptionsInsurance'].forEach((sub) => {
           if (typeof (data.fixedExpenses as any)[sub] !== 'undefined') {
             const n = Number((data.fixedExpenses as any)[sub]);
             if (!Number.isFinite(n)) {
@@ -131,7 +131,27 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     if (typeof data.gender !== 'undefined') {
       data.gender = String(data.gender).trim();
     }
-    
+    if (typeof data.householdResponsibilityLevel !== 'undefined') {
+      data.householdResponsibilityLevel = String(data.householdResponsibilityLevel).trim();
+    }
+    if (typeof data.incomeStability !== 'undefined') {
+      data.incomeStability = String(data.incomeStability).trim();
+    }
+    if (typeof data.riskTolerance !== 'undefined') {
+      data.riskTolerance = String(data.riskTolerance).trim();
+    }
+
+    // validate array fields
+    if (typeof data.dependents !== 'undefined') {
+      if (typeof data.dependents === 'number') {
+        data.dependents = [String(data.dependents)];
+      } else if (Array.isArray(data.dependents)) {
+        data.dependents = data.dependents.map(String);
+      } else {
+        data.dependents = [String(data.dependents)];
+      }
+    }
+
     // validate date field
     if (typeof data.dateOfBirth !== 'undefined') {
       const date = new Date(data.dateOfBirth);
@@ -154,7 +174,7 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     if (typeof data.planName !== 'undefined') {
       data.planName = String(data.planName);
     }
-    
+
     if (typeof data.goalDescription !== 'undefined') {
       data.goalDescription = String(data.goalDescription);
     }
@@ -215,7 +235,7 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
       return n;
     };
 
-    
+
 
     // handle string fields: fullName, gender
     if (typeof body.fullName !== 'undefined') {
@@ -226,6 +246,31 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
       console.log('setting gender:', body.gender);
       allowed.gender = String(body.gender).trim();
     }
+    if (typeof body.householdResponsibilityLevel !== 'undefined') {
+      console.log('setting householdResponsibilityLevel:', body.householdResponsibilityLevel);
+      allowed.householdResponsibilityLevel = String(body.householdResponsibilityLevel).trim();
+    }
+    if (typeof body.incomeStability !== 'undefined') {
+      console.log('setting incomeStability:', body.incomeStability);
+      allowed.incomeStability = String(body.incomeStability).trim();
+    }
+    if (typeof body.riskTolerance !== 'undefined') {
+      console.log('setting riskTolerance:', body.riskTolerance);
+      allowed.riskTolerance = String(body.riskTolerance).trim();
+    }
+
+    // handle array fields
+    if (typeof body.dependents !== 'undefined') {
+      console.log('setting dependents:', body.dependents);
+      if (typeof body.dependents === 'number') {
+        allowed.dependents = [String(body.dependents)];
+      } else if (Array.isArray(body.dependents)) {
+        allowed.dependents = body.dependents.map(String);
+      } else {
+        allowed.dependents = [String(body.dependents)];
+      }
+    }
+
     if (typeof body.dateOfBirth !== 'undefined') {
       console.log('setting dateOfBirth:', body.dateOfBirth);
       const date = new Date(body.dateOfBirth);
@@ -252,7 +297,7 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
         allowed.fixedExpenses = { rent: toNum(body.fixedExpenses, 'fixedExpenses') };
       } else if (typeof body.fixedExpenses === 'object' && body.fixedExpenses !== null) {
         const fe: any = {};
-        ['rent','utilities','subscriptionsInsurance'].forEach((sub) => {
+        ['rent', 'utilities', 'subscriptionsInsurance'].forEach((sub) => {
           if (typeof (body.fixedExpenses as any)[sub] !== 'undefined') {
             fe[sub] = toNum((body.fixedExpenses as any)[sub], `fixedExpenses.${sub}`);
           }
@@ -354,7 +399,7 @@ const submitContact = async (req: AuthRequest, res: Response) => {
     if (!fullName || !email || !description) {
       return res.status(400).json({ success: false, message: "fullName, email and description are required" });
     }
-  
+
     const update = { contact: { fullName, email, description } };
     const profile = await UserService.patchProfile(tokenId, update as any);
 
