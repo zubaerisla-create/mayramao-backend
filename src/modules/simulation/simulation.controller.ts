@@ -3,6 +3,7 @@ import { SimulationService } from "./simulation.service";
 
 const createSimulation = async (req: Request, res: Response) => {
   const { userId } = req.body;
+
   if (!userId) return res.status(400).json({ success: false, message: "userId required" });
 
   try {

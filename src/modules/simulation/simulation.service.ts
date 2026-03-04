@@ -38,7 +38,18 @@ const runSimulationForUser = async (userId: string) => {
     timeout: 20_000,
   });
 
-  const aiResponse = await res.json();
+  const responseText = await res.text();
+
+  if (!res.ok) {
+    throw new Error(`AI Simulation Error (${res.status}): ${responseText.substring(0, 100)}`);
+  }
+
+  let aiResponse;
+  try {
+    aiResponse = JSON.parse(responseText);
+  } catch (parseError) {
+    throw new Error(`Invalid JSON from AI API: ${responseText.substring(0, 50)}...`);
+  }
 
   // Save simulation record
   const sim = await Simulation.create({
