@@ -1,0 +1,190 @@
+{
+  "monthlyIncome": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Monthlyincome",
+    "min_value": 0
+  },
+  "rent": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Rent",
+    "min_value": 0
+  },
+  "utilities": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Utilities",
+    "min_value": 0
+  },
+  "subscriptionsInsurance": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Subscriptionsinsurance",
+    "min_value": 0
+  },
+  "existingLoans": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Existingloans",
+    "min_value": 0
+  },
+  "variableExpenses": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Variableexpenses",
+    "min_value": 0
+  },
+  "currentSavings": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Currentsavings",
+    "min_value": 0
+  },
+  "dependents": {
+    "type": "integer",
+    "required": true,
+    "read_only": false,
+    "label": "Dependents",
+    "min_value": 0
+  },
+  "householdResponsibilityLevel": {
+    "type": "choice",
+    "required": true,
+    "read_only": false,
+    "label": "Householdresponsibilitylevel",
+    "choices": [
+      {
+        "value": "all_or_most",
+        "display_name": "All or Most of It"
+      },
+      {
+        "value": "half",
+        "display_name": "About Half"
+      },
+      {
+        "value": "small_part",
+        "display_name": "A Small Part"
+      },
+      {
+        "value": "not_applicable",
+        "display_name": "Not Applicable"
+      }
+    ]
+  },
+  "incomeStability": {
+    "type": "choice",
+    "required": true,
+    "read_only": false,
+    "label": "Incomestability",
+    "choices": [
+      {
+        "value": "very_stable",
+        "display_name": "Very Stable"
+      },
+      {
+        "value": "mostly_stable",
+        "display_name": "Mostly Stable"
+      },
+      {
+        "value": "sometimes_changes",
+        "display_name": "Sometimes Changes"
+      },
+      {
+        "value": "unpredictable",
+        "display_name": "Unpredictable"
+      }
+    ]
+  },
+  "riskTolerance": {
+    "type": "choice",
+    "required": true,
+    "read_only": false,
+    "label": "Risktolerance",
+    "choices": [
+      {
+        "value": "safety",
+        "display_name": "I Prefer Safety"
+      },
+      {
+        "value": "balanced",
+        "display_name": "Balanced"
+      },
+      {
+        "value": "risk_ok",
+        "display_name": "I'm Okay With Risk"
+      }
+    ]
+  },
+  "purchaseAmount": {
+    "type": "float",
+    "required": true,
+    "read_only": false,
+    "label": "Purchaseamount",
+    "min_value": 0
+  },
+  "paymentType": {
+    "type": "choice",
+    "required": true,
+    "read_only": false,
+    "label": "Paymenttype",
+    "choices": [
+      {
+        "value": "full",
+        "display_name": "Full"
+      },
+      {
+        "value": "loan",
+        "display_name": "Loan"
+      }
+    ]
+  },
+  "loanDuration": {
+    "type": "integer",
+    "required": false,
+    "read_only": false,
+    "label": "Loanduration",
+    "min_value": 1
+  },
+  "interestRate": {
+    "type": "float",
+    "required": false,
+    "read_only": false,
+    "label": "Interestrate",
+    "min_value": 0
+  },
+  "planName": {
+    "type": "string",
+    "required": false,
+    "read_only": false,
+    "label": "Planname",
+    "max_length": 120
+  },
+  "targetAmount": {
+    "type": "float",
+    "required": false,
+    "read_only": false,
+    "label": "Targetamount",
+    "min_value": 0
+  },
+  "targetDate": {
+    "type": "date",
+    "required": false,
+    "read_only": false,
+    "label": "Targetdate"
+  },
+  "goalDescription": {
+    "type": "string",
+    "required": false,
+    "read_only": false,
+    "label": "Goaldescription",
+    "max_length": 500
+  }
+}
