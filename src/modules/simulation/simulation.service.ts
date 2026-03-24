@@ -1,10 +1,11 @@
 import { Simulation } from "./simulation.model";
 import { UserProfile } from "../user/user.model";
+import { Types } from "mongoose";
 const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-3.onrender.com/api/simulate/";
 
 const runSimulationForUser = async (userId: string) => {
   // fetch profile
-  const profile = await UserProfile.findOne({ $or: [{ userId }, { userId: userId }] }).lean();
+  const profile = await UserProfile.findOne({ userId: new Types.ObjectId(userId) }).lean();
   if (!profile) throw new Error("User profile not found");
 
   // Build payload matching the AI API expected fields
@@ -63,7 +64,7 @@ const runSimulationForUser = async (userId: string) => {
 };
 
 const getSimulationsByUser = async (userId: string) => {
-  return await Simulation.find({ userId }).sort({ createdAt: -1 }).lean();
+  return await Simulation.find({ userId: new Types.ObjectId(userId) }).sort({ createdAt: -1 }).lean();
 };
 
 export const SimulationService = { runSimulationForUser, getSimulationsByUser };

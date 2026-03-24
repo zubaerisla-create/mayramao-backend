@@ -34,6 +34,7 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
 
     // purchase simulation info
     purchaseSimulation: {
+      BuyingProductName: { type: String, default: "" },
       purchaseAmount: { type: Number, default: 0 },
       paymentType: { type: String, default: "PayInFull" },
       loanDuration: { type: Number, default: 0 },
