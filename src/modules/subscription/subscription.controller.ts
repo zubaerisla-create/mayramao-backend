@@ -115,12 +115,12 @@ const purchaseSubscription = async (req: AuthRequest, res: Response) => {
     }
 
     // delegate the heavy lifting to service layer
-    const subscription = await SubscriptionService.purchaseSubscription(userId, planId, {
+    const result = await SubscriptionService.purchaseSubscription(userId, planId, {
       cardHolderName,
       paymentMethodId,
     });
 
-    res.status(200).json({ success: true, subscription });
+    res.status(200).json({ success: true, ...result });
   } catch (err: any) {
     console.error("Purchase subscription error:", err);
     res.status(400).json({ success: false, message: err.message || "Failed to complete purchase" });

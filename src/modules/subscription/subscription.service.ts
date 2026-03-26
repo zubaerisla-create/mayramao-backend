@@ -13,11 +13,12 @@ interface CreateSubscriptionDto {
    * price ID in Stripe for recurring billing; optional for one‑time plans
    */
   stripePriceId?: string;
+  stripeProductId?: string;
 }
 
 const createSubscription = async (data: CreateSubscriptionDto) => {
   // basic validation
-  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, stripePriceId } = data;
+  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit } = data;
   if (!planName || !planType || price == null || duration == null) {
     throw new Error("All required fields must be provided");
   }
@@ -30,11 +31,29 @@ const createSubscription = async (data: CreateSubscriptionDto) => {
     throw new Error("Subscription with this plan name already exists");
   }
 
+  const stripe = await import("../../config/stripe").then((mod) => mod.default);
+
+  // 1️⃣ Create product in Stripe
+  const product = await stripe.products.create({
+    name: planName,
+  });
+
+  // 2️⃣ Create price in Stripe
+  const stripePrice = await stripe.prices.create({
+    product: product.id,
+    unit_amount: price * 100, // Stripe expects cents
+    currency: "usd",
+    recurring: {
+      interval: planType.toLowerCase().includes("month") ? "month" : "year",
+    },
+  });
+
   const sub = new Subscription({
     ...data,
     features: data.features || [],
     simulationsUnlimited: data.simulationsUnlimited || false,
-    stripePriceId: stripePriceId || "",
+    stripeProductId: product.id,
+    stripePriceId: stripePrice.id,
   });
 
   await sub.save();
@@ -175,8 +194,8 @@ const purchaseSubscription = async (
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: plan.stripePriceId }],
-    default_payment_method: payment.paymentMethodId || undefined,
-    expand: ["latest_invoice.payment_intent"],
+    payment_behavior: 'default_incomplete',
+    expand: ['latest_invoice.payment_intent'],
     metadata: {
       planId: planId.toString(),
       planName: plan.planName,
@@ -200,7 +219,14 @@ const purchaseSubscription = async (
     },
   });
 
-  return subscription;
+  // return the client secret for the frontend to use in PaymentSheet
+  const latestInvoice = subscription.latest_invoice as any;
+  const paymentIntent = latestInvoice?.payment_intent as any;
+
+  return {
+    subscriptionId: subscription.id,
+    clientSecret: paymentIntent?.client_secret,
+  };
 };
 
 export const SubscriptionService = {
