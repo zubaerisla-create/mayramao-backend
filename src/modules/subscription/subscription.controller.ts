@@ -115,12 +115,12 @@ const purchaseSubscription = async (req: AuthRequest, res: Response) => {
     }
 
     // delegate the heavy lifting to service layer
-    const subscription = await SubscriptionService.purchaseSubscription(userId, planId, {
+    const result = await SubscriptionService.purchaseSubscription(userId, planId, {
       cardHolderName,
       paymentMethodId,
     });
 
-    res.status(200).json({ success: true, subscription });
+    res.status(200).json({ success: true, ...result });
   } catch (err: any) {
     console.error("Purchase subscription error:", err);
     res.status(400).json({ success: false, message: err.message || "Failed to complete purchase" });
@@ -165,6 +165,20 @@ const stripeWebhook = async (req: Request, res: Response) => {
   res.json({ received: true });
 };
 
+const getMySubscription = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const subscription = await SubscriptionService.getUserSubscription(userId);
+    res.status(200).json({ success: true, subscription });
+  } catch (error: any) {
+    console.error("Get my subscription error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to fetch your subscription" });
+  }
+};
+
 const getStripeKey = async (_req: Request, res: Response) => {
   res.status(200).json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "" });
 };
@@ -176,6 +190,7 @@ export const SubscriptionController = {
   editSubscription,
   removeSubscription,
   purchaseSubscription,
+  getMySubscription,
   getStripeKey,
   stripeWebhook,
 };

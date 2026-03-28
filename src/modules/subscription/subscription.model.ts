@@ -10,8 +10,9 @@ export interface ISubscription {
   features: string[];
   isActive: boolean;
   activePlan?: boolean; // whether this plan is currently selected/active
-  // for Stripe recurring subscriptions we store the associated price ID
+  // for Stripe recurring subscriptions we store the associated price ID and product ID
   stripePriceId?: string;
+  stripeProductId?: string;
 }
 
 export interface ISubscriptionDocument extends ISubscription, Document {}
@@ -28,6 +29,7 @@ const subscriptionSchema = new Schema<ISubscriptionDocument>(
     isActive: { type: Boolean, default: true },
     activePlan: { type: Boolean, default: false },
     stripePriceId: { type: String, default: "" },
+    stripeProductId: { type: String, default: "" },
   },
   { timestamps: true }
 );

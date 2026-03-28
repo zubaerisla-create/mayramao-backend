@@ -12,17 +12,18 @@ interface CreateSubscriptionDto {
   /**
    * price ID in Stripe for recurring billing; optional for one‑time plans
    */
+  /**
+   * price and product IDs in Stripe
+   */
   stripePriceId?: string;
+  stripeProductId?: string;
 }
 
 const createSubscription = async (data: CreateSubscriptionDto) => {
   // basic validation
-  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit, stripePriceId } = data;
+  const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit } = data;
   if (!planName || !planType || price == null || duration == null) {
     throw new Error("All required fields must be provided");
-  }
-  if (!simulationsUnlimited && (simulationsLimit == null)) {
-    throw new Error("Either simulationsUnlimited must be true or a simulationsLimit number provided");
   }
 
   const existing = await Subscription.findOne({ planName });
@@ -30,11 +31,27 @@ const createSubscription = async (data: CreateSubscriptionDto) => {
     throw new Error("Subscription with this plan name already exists");
   }
 
+  const stripe = await import("../../config/stripe").then((mod) => mod.default);
+
+  // 1️⃣ Create product in Stripe
+  const product = await stripe.products.create({
+    name: planName,
+  });
+
+  // 2️⃣ Create price in Stripe
+  const stripePrice = await stripe.prices.create({
+    product: product.id,
+    unit_amount: Math.round(price * 100), // Stripe expects cents
+    currency: "usd",
+    recurring: planType.toLowerCase() === "monthly" ? { interval: "month" } : { interval: "year" },
+  });
+
   const sub = new Subscription({
     ...data,
     features: data.features || [],
     simulationsUnlimited: data.simulationsUnlimited || false,
-    stripePriceId: stripePriceId || "",
+    stripePriceId: stripePrice.id,
+    stripeProductId: product.id,
   });
 
   await sub.save();
@@ -175,7 +192,7 @@ const purchaseSubscription = async (
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: plan.stripePriceId }],
-    default_payment_method: payment.paymentMethodId || undefined,
+    payment_behavior: 'default_incomplete', // important for PaymentSheet
     expand: ["latest_invoice.payment_intent"],
     metadata: {
       planId: planId.toString(),
@@ -183,6 +200,8 @@ const purchaseSubscription = async (
       userId,
     },
   });
+
+  const clientSecret = (subscription.latest_invoice as any)?.payment_intent?.client_secret;
 
   const startedAt = new Date(subscription.current_period_start * 1000);
   const expiresAt = new Date(subscription.current_period_end * 1000);
@@ -200,7 +219,17 @@ const purchaseSubscription = async (
     },
   });
 
-  return subscription;
+  return {
+    subscriptionId: subscription.id,
+    clientSecret,
+  };
+};
+
+const getUserSubscription = async (userId: string) => {
+  const { UserProfile } = await import("../user/user.model");
+  const profile = await UserProfile.findOne({ userId }).populate("subscription.planId").lean();
+  if (!profile) throw new Error("User profile not found");
+  return profile.subscription;
 };
 
 export const SubscriptionService = {
@@ -210,6 +239,7 @@ export const SubscriptionService = {
   updateSubscription,
   deleteSubscription,
   purchaseSubscription,
+  getUserSubscription,
 };
 
 // exported above with purchaseSubscription included
