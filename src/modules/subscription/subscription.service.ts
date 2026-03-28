@@ -205,11 +205,17 @@ const purchaseSubscription = async (
 
   const startedAt = new Date(subscription.current_period_start * 1000);
   const expiresAt = new Date(subscription.current_period_end * 1000);
+  console.log(`[SubscriptionService] Plan data for ${planId}:`, JSON.stringify(plan, null, 2));
 
   await UserService.patchProfile(userId, {
     subscription: {
       planId,
       planName: plan.planName,
+      planType: plan.planType,
+      price: plan.price,
+      duration: plan.duration,
+      simulationsLimit: plan.simulationsLimit,
+      features: plan.features,
       startedAt,
       expiresAt,
       stripeCustomerId: customerId,

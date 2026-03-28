@@ -372,6 +372,12 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
       console.log('setting support:', body.support);
       allowed.support = body.support;
     }
+    
+    // NEW: Allow manual subscription updates (useful for debugging/testing)
+    if (typeof body.subscription !== 'undefined') {
+      console.log('setting subscription:', body.subscription);
+      allowed.subscription = body.subscription;
+    }
 
     console.log('patchProfile final allowed update:', allowed, 'tokenId:', tokenId, 'using userId:', userId);
 

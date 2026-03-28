@@ -47,6 +47,11 @@ export interface IUserProfile {
   subscription?: {
     planId?: string | Types.ObjectId;
     planName?: string;
+    planType?: string;
+    price?: number;
+    duration?: number;
+    simulationsLimit?: number;
+    features?: string[];
     startedAt?: Date;
     expiresAt?: Date;
     stripeCustomerId?: string;
