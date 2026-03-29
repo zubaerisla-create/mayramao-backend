@@ -1,7 +1,7 @@
 import { Simulation } from "./simulation.model";
 import { UserProfile } from "../user/user.model";
 import { Types } from "mongoose";
-const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-6.onrender.com/api/simulate/";
+const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-7.onrender.com/api/simulate/";
 
 const runSimulationForUser = async (userId: string) => {
   // fetch profile

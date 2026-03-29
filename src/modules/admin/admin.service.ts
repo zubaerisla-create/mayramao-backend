@@ -256,6 +256,8 @@ const downgradeUserSubscription = async (userId: string) => {
   const profile = await UserProfile.findOne({ userId });
   if (!profile) throw new Error("User profile not found");
 
+  const stripeCustomerId = profile.subscription?.stripeCustomerId || "";
+
   // if a Stripe subscription exists, cancel it immediately
   if (profile.subscription?.stripeSubscriptionId) {
     const stripe = await import("../../config/stripe").then((m) => m.default);
@@ -270,9 +272,14 @@ const downgradeUserSubscription = async (userId: string) => {
   profile.subscription = {
     planId: null,
     planName: "",
+    planType: "",
+    price: 0,
+    duration: 0,
+    simulationsLimit: 0,
+    features: [],
     startedAt: null,
     expiresAt: null,
-    stripeCustomerId: "",
+    stripeCustomerId, // preserve customer id
     stripeSubscriptionId: "",
     stripePriceId: "",
     stripePaymentIntentId: "",
@@ -297,7 +304,7 @@ const cancelUserSubscription = async (userId: string) => {
     // cancel immediately
     try {
       await stripe.subscriptions.del(profile.subscription.stripeSubscriptionId, {
-        invoice_now: false,
+        invoice_now: false, // don't generate a final invoice immediately if not needed
         prorate: false,
       });
     } catch (err) {
@@ -307,6 +314,7 @@ const cancelUserSubscription = async (userId: string) => {
 
   profile.subscription.expiresAt = new Date();
   profile.subscription.isActive = false;
+  // We keep the planId and planName but mark it inactive
   await profile.save();
   return profile.subscription;
 };
