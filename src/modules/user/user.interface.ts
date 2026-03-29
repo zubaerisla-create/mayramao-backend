@@ -29,7 +29,7 @@ export interface IUserProfile {
 
   // purchase simulation information (for frontend calculator)
   purchaseSimulation?: {
-    BuyingProductName?: string;
+    planName?: string;
     purchaseAmount?: number;
     paymentType?: "PayInFull" | "Financing";
     loanDuration?: number;       // months, only if Financing

@@ -6,6 +6,9 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwtToken"
 import { Auth } from "../auth/auth.model";
 import { UserProfile } from "../user/user.model";
 import { Types } from "mongoose";
+import { Simulation } from "../simulation/simulation.model";
+import { Ticket } from "../ticket/ticket.model";
+import { Subscription } from "../subscription/subscription.model";
 
 const adminLogin = async (email: string, password: string) => {
   // Validate input
@@ -347,6 +350,70 @@ const changePassword = async (
   return { message: "Password updated successfully" };
 };
 
+const getDashboardStats = async () => {
+  const totalUsers = await Auth.countDocuments();
+  const activeUsers = await Auth.countDocuments({ isActive: true });
+  const totalSimulations = await Simulation.countDocuments();
+  const newSupportMessages = await Ticket.countDocuments({ status: "new" });
+
+  // Calculate Revenue
+  // We use current active subscriptions as a proxy for revenue since we don't have a transaction table
+  const activeSubscriptions = await UserProfile.find({ "subscription.isActive": true }).select("subscription");
+
+  const totalRevenue = activeSubscriptions.reduce((acc, profile) => acc + (profile.subscription?.price || 0), 0);
+
+  // Monthly Revenue (subscriptions started this month)
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const monthlyRevenue = activeSubscriptions
+    .filter(p => p.subscription?.startedAt && new Date(p.subscription.startedAt) >= startOfMonth)
+    .reduce((acc, p) => acc + (p.subscription?.price || 0), 0);
+
+  // Subscription Distribution
+  const distributionRaw = await UserProfile.aggregate([
+    { $match: { "subscription.isActive": true } },
+    { $group: { _id: "$subscription.planName", count: { $sum: 1 } } }
+  ]);
+
+  const subscriptionDistribution = distributionRaw.map(item => ({
+    name: item._id || "Free",
+    count: item.count
+  }));
+
+  // Revenue Trend (Last 7 months)
+  const trend = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const month = d.toLocaleString('default', { month: 'short' });
+    const year = d.getFullYear();
+    const monthStart = new Date(year, d.getMonth(), 1);
+    const monthEnd = new Date(year, d.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const monthRev = activeSubscriptions
+      .filter(p => {
+        const start = p.subscription?.startedAt ? new Date(p.subscription.startedAt) : null;
+        return start && start >= monthStart && start <= monthEnd;
+      })
+      .reduce((acc, p) => acc + (p.subscription?.price || 0), 0);
+
+    trend.push({ month: `${month}`, revenue: monthRev });
+  }
+
+  return {
+    totalUsers,
+    activeUsers,
+    totalSimulations,
+    newSupportMessages,
+    totalRevenue,
+    monthlyRevenue,
+    revenueTrend: trend,
+    subscriptionDistribution
+  };
+};
+
 export const AdminService = {
   adminLogin,
   createAdmin,
@@ -371,4 +438,7 @@ export const AdminService = {
 
   // password change
   changePassword,
+
+  // dashboard stats
+  getDashboardStats,
 };

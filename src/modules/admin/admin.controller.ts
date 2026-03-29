@@ -300,6 +300,22 @@ const resetPassword = async (req: Request, res: Response) => {
   }
 };
 
+const getDashboardStats = async (req: AdminRequest, res: Response) => {
+  try {
+    const stats = await AdminService.getDashboardStats();
+    res.status(200).json({
+      success: true,
+      stats,
+    });
+  } catch (error: any) {
+    console.error("Get dashboard stats error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to fetch dashboard stats",
+    });
+  }
+};
+
 export const AdminController = {
   login,
   refreshToken,
@@ -324,4 +340,7 @@ export const AdminController = {
   forgotPassword,
   resendOTP,
   resetPassword,
+
+  // dashboard stats
+  getDashboardStats,
 };
