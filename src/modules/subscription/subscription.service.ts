@@ -192,8 +192,8 @@ const purchaseSubscription = async (
   const subscription = await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: plan.stripePriceId }],
-    payment_behavior: 'default_incomplete', // important for PaymentSheet
-    expand: ["latest_invoice.payment_intent"],
+    payment_behavior: 'default_incomplete', // subscription is created but not charged yet
+    expand: ['latest_invoice.payment_intent'],
     metadata: {
       planId: planId.toString(),
       planName: plan.planName,
