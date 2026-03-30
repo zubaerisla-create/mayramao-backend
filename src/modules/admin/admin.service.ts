@@ -364,51 +364,101 @@ const getDashboardStats = async () => {
   const totalSimulations = await Simulation.countDocuments();
   const newSupportMessages = await Ticket.countDocuments({ status: "new" });
 
-  // Calculate Revenue
-  // We use current active subscriptions as a proxy for revenue since we don't have a transaction table
-  const activeSubscriptions = await UserProfile.find({ "subscription.isActive": true }).select("subscription");
+  const stripe = await import("../../config/stripe").then((m) => m.default);
 
-  const totalRevenue = activeSubscriptions.reduce((acc, profile) => acc + (profile.subscription?.price || 0), 0);
+  // Calculate Revenue from Stripe Invoices
+  let totalRevenueCents = 0;
+  const revenueByMonth: Record<string, number> = {};
+  
+  let hasMoreInvoices = true;
+  let startingAfterInvoice: string | undefined = undefined;
 
-  // Monthly Revenue (subscriptions started this month)
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  while (hasMoreInvoices) {
+    const invoices: any = await stripe.invoices.list({
+      status: 'paid',
+      limit: 100,
+      starting_after: startingAfterInvoice,
+    });
+    
+    for (const invoice of invoices.data) {
+      if (invoice.amount_paid) {
+        totalRevenueCents += invoice.amount_paid;
+        
+        const timestamp = invoice.period_start || invoice.created;
+        const d = new Date(timestamp * 1000);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!revenueByMonth[monthKey]) {
+          revenueByMonth[monthKey] = 0;
+        }
+        revenueByMonth[monthKey] += invoice.amount_paid;
+      }
+    }
+    
+    if (invoices.has_more) {
+      startingAfterInvoice = invoices.data[invoices.data.length - 1].id;
+    } else {
+      hasMoreInvoices = false;
+    }
+  }
 
-  const monthlyRevenue = activeSubscriptions
-    .filter(p => p.subscription?.startedAt && new Date(p.subscription.startedAt) >= startOfMonth)
-    .reduce((acc, p) => acc + (p.subscription?.price || 0), 0);
+  const totalRevenue = totalRevenueCents / 100;
 
-  // Subscription Distribution
-  const distributionRaw = await UserProfile.aggregate([
-    { $match: { "subscription.isActive": true } },
-    { $group: { _id: "$subscription.planName", count: { $sum: 1 } } }
-  ]);
-
-  const subscriptionDistribution = distributionRaw.map(item => ({
-    name: item._id || "Free",
-    count: item.count
-  }));
-
-  // Revenue Trend (Last 7 months)
+  // Monthly Revenue Trend (Last 7 months)
   const trend = [];
+  const now = new Date();
+  
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setMonth(d.getMonth() - i);
-    const month = d.toLocaleString('default', { month: 'short' });
-    const year = d.getFullYear();
-    const monthStart = new Date(year, d.getMonth(), 1);
-    const monthEnd = new Date(year, d.getMonth() + 1, 0, 23, 59, 59, 999);
-
-    const monthRev = activeSubscriptions
-      .filter(p => {
-        const start = p.subscription?.startedAt ? new Date(p.subscription.startedAt) : null;
-        return start && start >= monthStart && start <= monthEnd;
-      })
-      .reduce((acc, p) => acc + (p.subscription?.price || 0), 0);
-
-    trend.push({ month: `${month}`, revenue: monthRev });
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const monthName = d.toLocaleString('default', { month: 'short' });
+    trend.push({ month: monthName, revenue: (revenueByMonth[monthKey] || 0) / 100 });
   }
+
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthlyRevenue = (revenueByMonth[currentMonthKey] || 0) / 100;
+
+  // Subscription Distribution from Stripe
+  const planCounts: Record<string, number> = {};
+  let hasMoreSubs = true;
+  let startingAfterSub: string | undefined = undefined;
+
+  while (hasMoreSubs) {
+    const subs: any = await stripe.subscriptions.list({
+      status: 'active',
+      limit: 100,
+      starting_after: startingAfterSub,
+      expand: ['data.plan.product'],
+    });
+
+    for (const sub of subs.data) {
+      // Use metadata planName if available, else try to get from expanded product, else fallback
+      let planName = sub.metadata?.planName;
+      if (!planName && sub.plan?.product && typeof sub.plan.product !== 'string') {
+        planName = sub.plan.product.name;
+      }
+      if (!planName) {
+         planName = sub.plan?.id || "Unknown Plan";
+      }
+
+      if (!planCounts[planName]) {
+        planCounts[planName] = 0;
+      }
+      planCounts[planName] += 1;
+    }
+
+    if (subs.has_more) {
+      startingAfterSub = subs.data[subs.data.length - 1].id;
+    } else {
+      hasMoreSubs = false;
+    }
+  }
+
+  const subscriptionDistribution = Object.keys(planCounts).map(name => ({
+    name,
+    count: planCounts[name]
+  }));
 
   return {
     totalUsers,

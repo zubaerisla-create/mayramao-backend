@@ -237,6 +237,13 @@ const purchaseSubscription = async (
   };
 };
 
+const getUserSubscription = async (userId: string) => {
+  const { UserProfile } = await import("../user/user.model");
+  const profile = await UserProfile.findOne({ userId }).populate("subscription.planId").lean();
+  if (!profile) throw new Error("User profile not found");
+  return profile.subscription;
+};
+
 export const SubscriptionService = {
   createSubscription,
   getAllSubscriptions,
