@@ -12,6 +12,9 @@ interface CreateSubscriptionDto {
   /**
    * price ID in Stripe for recurring billing; optional for one‑time plans
    */
+  /**
+   * price and product IDs in Stripe
+   */
   stripePriceId?: string;
   stripeProductId?: string;
 }
@@ -21,9 +24,6 @@ const createSubscription = async (data: CreateSubscriptionDto) => {
   const { planName, planType, price, duration, simulationsUnlimited, simulationsLimit } = data;
   if (!planName || !planType || price == null || duration == null) {
     throw new Error("All required fields must be provided");
-  }
-  if (!simulationsUnlimited && (simulationsLimit == null)) {
-    throw new Error("Either simulationsUnlimited must be true or a simulationsLimit number provided");
   }
 
   const existing = await Subscription.findOne({ planName });
@@ -203,13 +203,21 @@ const purchaseSubscription = async (
     },
   });
 
+  const clientSecret = (subscription.latest_invoice as any)?.payment_intent?.client_secret;
+
   const startedAt = new Date(subscription.current_period_start * 1000);
   const expiresAt = new Date(subscription.current_period_end * 1000);
+  console.log(`[SubscriptionService] Plan data for ${planId}:`, JSON.stringify(plan, null, 2));
 
   await UserService.patchProfile(userId, {
     subscription: {
       planId,
       planName: plan.planName,
+      planType: plan.planType,
+      price: plan.price,
+      duration: plan.duration,
+      simulationsLimit: plan.simulationsLimit,
+      features: plan.features,
       startedAt,
       expiresAt,
       stripeCustomerId: customerId,
@@ -236,6 +244,7 @@ export const SubscriptionService = {
   updateSubscription,
   deleteSubscription,
   purchaseSubscription,
+  getUserSubscription,
 };
 
 // exported above with purchaseSubscription included

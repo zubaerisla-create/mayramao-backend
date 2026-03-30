@@ -76,6 +76,8 @@ const patchProfile = async (userId: string, data: Partial<IUserProfile>) => {
     }
   }
 
+  console.log(`[UserService] final set object:`, JSON.stringify(set, null, 2));
+
   if (Object.keys(set).length === 0) {
     // nothing to update
     return await UserProfile.findOne({ userId });

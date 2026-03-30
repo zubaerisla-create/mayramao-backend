@@ -1,7 +1,7 @@
 import { Simulation } from "./simulation.model";
 import { UserProfile } from "../user/user.model";
 import { Types } from "mongoose";
-const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-3.onrender.com/api/simulate/";
+const AI_ENDPOINT = process.env.AI_SIMULATE_ENDPOINT || "https://ai-financial-model-7.onrender.com/api/simulate/";
 
 const runSimulationForUser = async (userId: string) => {
   // fetch profile
@@ -31,15 +31,19 @@ const runSimulationForUser = async (userId: string) => {
     goalDescription: profile.goalDescription || "",
   };
 
+  console.log(`[Simulation] Calling AI API: ${AI_ENDPOINT}`);
+  const startTime = Date.now();
+  
   // Call external AI API
   const res = await (global as any).fetch(AI_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    timeout: 20_000,
   });
 
   const responseText = await res.text();
+  const duration = Date.now() - startTime;
+  console.log(`[Simulation] AI API returned with status ${res.status} in ${duration}ms`);
 
   if (!res.ok) {
     throw new Error(`AI Simulation Error (${res.status}): ${responseText.substring(0, 100)}`);

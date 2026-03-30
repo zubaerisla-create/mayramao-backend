@@ -10,6 +10,7 @@ router.get("/", SubscriptionController.listSubscriptions);
 router.get("/:id", SubscriptionController.getSubscription);
 
 // client purchase endpoints
+router.get("/my", authenticate, SubscriptionController.getMySubscription);
 router.post("/purchase", authenticate, SubscriptionController.purchaseSubscription);
 router.get("/stripe-key", SubscriptionController.getStripeKey);
 

@@ -34,7 +34,7 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
 
     // purchase simulation info
     purchaseSimulation: {
-      BuyingProductName: { type: String, default: "" },
+      planName: { type: String, default: "" },
       purchaseAmount: { type: Number, default: 0 },
       paymentType: { type: String, default: "PayInFull" },
       loanDuration: { type: Number, default: 0 },
@@ -52,6 +52,11 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
     subscription: {
       planId: { type: Schema.Types.ObjectId, ref: "Subscription", default: null },
       planName: { type: String, default: "" },
+      planType: { type: String, default: "" },
+      price: { type: Number, default: 0 },
+      duration: { type: Number, default: 0 },
+      simulationsLimit: { type: Number, default: 0 },
+      features: { type: [String], default: [] },
       startedAt: { type: Date, default: null },
       expiresAt: { type: Date, default: null },
       stripeCustomerId: { type: String, default: "" },

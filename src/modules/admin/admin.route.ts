@@ -15,6 +15,7 @@ router.post("/reset-password", AdminController.resetPassword);
 
 // Protected routes (require admin token)
 router.get("/profile", adminAuthMiddleware, AdminController.getProfile);
+router.get("/dashboard-stats", adminAuthMiddleware, AdminController.getDashboardStats);
 
 // admin user management
 router.get("/users", adminAuthMiddleware, AdminController.getAllUsers);

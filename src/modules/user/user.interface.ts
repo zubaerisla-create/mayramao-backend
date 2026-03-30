@@ -29,7 +29,7 @@ export interface IUserProfile {
 
   // purchase simulation information (for frontend calculator)
   purchaseSimulation?: {
-    BuyingProductName?: string;
+    planName?: string;
     purchaseAmount?: number;
     paymentType?: "PayInFull" | "Financing";
     loanDuration?: number;       // months, only if Financing
@@ -47,6 +47,11 @@ export interface IUserProfile {
   subscription?: {
     planId?: string | Types.ObjectId;
     planName?: string;
+    planType?: string;
+    price?: number;
+    duration?: number;
+    simulationsLimit?: number;
+    features?: string[];
     startedAt?: Date;
     expiresAt?: Date;
     stripeCustomerId?: string;
