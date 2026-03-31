@@ -143,6 +143,13 @@ const googleLogin = async (idToken: string) => {
     });
   }
 
+  // Ensure UserProfile exists and has name/email populated
+  await UserProfile.findOneAndUpdate(
+    { userId: user._id },
+    { $set: { email: user.email, fullName: user.name } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
   // Generate tokens
   const accessToken = generateAccessToken({
     id: user._id.toString(),
