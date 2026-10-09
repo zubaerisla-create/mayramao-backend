@@ -1,0 +1,29 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Production VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            echo "Pulling latest changes from main branch..."
+            cd /var/www/mayramao-backend
+            git fetch origin main
+            git reset --hard origin/main
+            echo "Rebuilding and restarting docker container..."
+            docker compose up -d --build
+            echo "Cleaning up dangling docker images..."
+            docker image prune -f
+            echo "Deployment finished successfully!"
