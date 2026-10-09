@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mayramao-backend:
+    build: .
+    container_name: mayramao-backend
+    restart: always
+    ports:
+      - "127.0.0.1:5050:5050"
+    environment:
+      - PORT=5050
+      - NODE_ENV=production
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
