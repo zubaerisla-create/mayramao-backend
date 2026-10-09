@@ -21,8 +21,13 @@ app.post(
   SubscriptionController.stripeWebhook
 );
 
+import path from "path";
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+import { InvestmentRoutes } from "./modules/investment/investment.route";
 
 app.use("/api/v1/auth",AuthRoutes)
 app.use("/api/v1/users", UserRoutes);
@@ -30,6 +35,7 @@ app.use("/api/v1/admin", AdminRoutes);
 app.use("/api/v1/subscriptions", SubscriptionRoutes);
 app.use("/api/v1/tickets", TicketRoutes);
 app.use("/api/v1/simulations", SimulationRoutes);
+app.use("/api/v1/investment", InvestmentRoutes);
 
 app.get("/",(req, res) => {
     res.send("Server is running....")

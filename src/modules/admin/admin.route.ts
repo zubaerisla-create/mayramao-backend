@@ -22,6 +22,8 @@ router.get("/users", adminAuthMiddleware, AdminController.getAllUsers);
 router.get("/users/:id", adminAuthMiddleware, AdminController.getUserById);
 // allow admin to activate/block a user
 router.put("/users/:id", adminAuthMiddleware, AdminController.updateUser);
+// allow admin to permanently delete a user
+router.delete("/users/:id", adminAuthMiddleware, AdminController.deleteUser);
 
 // admin subscription management for individual users
 router.put(

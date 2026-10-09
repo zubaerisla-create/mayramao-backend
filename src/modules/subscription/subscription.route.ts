@@ -14,6 +14,9 @@ router.get("/my", authenticate, SubscriptionController.getMySubscription);
 router.post("/purchase", authenticate, SubscriptionController.purchaseSubscription);
 router.get("/stripe-key", SubscriptionController.getStripeKey);
 
+// RevenueCat server-to-server webhook
+router.post("/revenuecat-webhook", SubscriptionController.revenueCatWebhook);
+
 
 // admin-only
 router.post("/", adminAuthMiddleware, SubscriptionController.addSubscription);

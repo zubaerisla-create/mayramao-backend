@@ -183,6 +183,31 @@ const getStripeKey = async (_req: Request, res: Response) => {
   res.status(200).json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "" });
 };
 
+const revenueCatWebhook = async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers["authorization"];
+    const expectedToken = process.env.REVENUECAT_WEBHOOK_AUTH_TOKEN;
+
+    if (expectedToken) {
+      const isValid =
+        authHeader === expectedToken ||
+        authHeader === `Bearer ${expectedToken}`;
+      if (!isValid) {
+        console.warn("[RevenueCat Webhook] Unauthorized request received");
+        return res.status(401).json({ success: false, message: "Unauthorized webhook" });
+      }
+    }
+
+    const { processRevenueCatWebhook } = await import("./revenuecat.service");
+    const result = await processRevenueCatWebhook(req.body);
+
+    return res.status(200).json({ received: true, ...result });
+  } catch (err: any) {
+    console.error("[RevenueCat Webhook] Error processing event:", err);
+    return res.status(500).json({ received: false, error: err.message });
+  }
+};
+
 export const SubscriptionController = {
   addSubscription,
   listSubscriptions,
@@ -193,4 +218,5 @@ export const SubscriptionController = {
   getMySubscription,
   getStripeKey,
   stripeWebhook,
+  revenueCatWebhook,
 };

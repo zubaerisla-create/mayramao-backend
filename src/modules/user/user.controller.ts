@@ -4,6 +4,7 @@ import { Types } from "mongoose";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { Auth } from "../auth/auth.model";
 import { TicketService } from "../ticket/ticket.service";
+import { uploadToCloudinaryOrLocal } from "../../config/cloudinary";
 
 const getProfile = async (req: AuthRequest, res: Response) => {
   try {
@@ -48,9 +49,9 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
 
     const userId = tokenId;
     const data: any = { ...req.body };
-    // If file uploaded, set profileImage to Cloudinary URL
-    if (req.file && req.file.path) {
-      data.profileImage = req.file.path;
+    // If file uploaded, set profileImage
+    if (req.file) {
+      data.profileImage = await uploadToCloudinaryOrLocal(req.file, req);
     }
     delete data.userId;
     delete data.email; // email comes from Auth, not from body input
@@ -127,6 +128,9 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     // validate string fields
     if (typeof data.fullName !== 'undefined') {
       data.fullName = String(data.fullName).trim();
+      if (data.fullName) {
+        await Auth.findByIdAndUpdate(tokenId, { name: data.fullName });
+      }
     }
     if (typeof data.gender !== 'undefined') {
       data.gender = String(data.gender).trim();
@@ -139,6 +143,12 @@ const saveProfile = async (req: AuthRequest, res: Response) => {
     }
     if (typeof data.riskTolerance !== 'undefined') {
       data.riskTolerance = String(data.riskTolerance).trim();
+    }
+    if (typeof data.currency !== 'undefined') {
+      const c = String(data.currency).toUpperCase().trim();
+      if (c === 'USD' || c === 'BDT') {
+        data.currency = c;
+      }
     }
 
     // validate array fields
@@ -212,9 +222,9 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
 
     const allowed: any = {};
     const body = { ...req.body };
-    // If file uploaded, set profileImage to Cloudinary URL
-    if (req.file && req.file.path) {
-      allowed.profileImage = req.file.path;
+    // If file uploaded, set profileImage
+    if (req.file) {
+      allowed.profileImage = await uploadToCloudinaryOrLocal(req.file, req);
     }
     delete body.userId;
     delete body.email; // email comes from Auth, not from body input
@@ -241,6 +251,9 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
     if (typeof body.fullName !== 'undefined') {
       console.log('setting fullName:', body.fullName);
       allowed.fullName = String(body.fullName).trim();
+      if (allowed.fullName) {
+        await Auth.findByIdAndUpdate(tokenId, { name: allowed.fullName });
+      }
     }
     if (typeof body.gender !== 'undefined') {
       console.log('setting gender:', body.gender);
@@ -257,6 +270,13 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
     if (typeof body.riskTolerance !== 'undefined') {
       console.log('setting riskTolerance:', body.riskTolerance);
       allowed.riskTolerance = String(body.riskTolerance).trim();
+    }
+    if (typeof body.currency !== 'undefined') {
+      console.log('setting currency:', body.currency);
+      const c = String(body.currency).toUpperCase().trim();
+      if (c === 'USD' || c === 'BDT') {
+        allowed.currency = c;
+      }
     }
 
     // handle array fields
@@ -342,6 +362,11 @@ const patchProfile = async (req: AuthRequest, res: Response) => {
     if (typeof body.purchaseSimulation !== 'undefined') {
       const sim = body.purchaseSimulation;
       const simAllowed: any = {};
+      if (typeof sim.planName !== 'undefined') {
+        simAllowed.planName = String(sim.planName);
+      } else if (typeof body.planName !== 'undefined') {
+        simAllowed.planName = String(body.planName);
+      }
       if (typeof sim.purchaseAmount !== 'undefined') {
         simAllowed.purchaseAmount = toNum(sim.purchaseAmount, 'purchaseSimulation.purchaseAmount');
       }

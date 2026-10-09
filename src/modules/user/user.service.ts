@@ -57,12 +57,21 @@ const patchProfile = async (userId: string, data: Partial<IUserProfile>) => {
   if (typeof data.householdResponsibilityLevel !== 'undefined') set['householdResponsibilityLevel'] = data.householdResponsibilityLevel;
   if (typeof data.incomeStability !== 'undefined') set['incomeStability'] = data.incomeStability;
   if (typeof data.riskTolerance !== 'undefined') set['riskTolerance'] = data.riskTolerance;
+  if (typeof (data as any).currency !== 'undefined') set['currency'] = (data as any).currency;
 
   // Goal section fields
   if (typeof data.planName !== 'undefined') set['planName'] = data.planName;
   if (typeof data.targetAmount !== 'undefined') set['targetAmount'] = data.targetAmount;
   if (typeof data.targetDate !== 'undefined') set['targetDate'] = data.targetDate;
   if (typeof data.goalDescription !== 'undefined') set['goalDescription'] = data.goalDescription;
+
+  // Purchase simulation fields
+  if (typeof (data as any).purchaseSimulation !== 'undefined') {
+    set['purchaseSimulation'] = (data as any).purchaseSimulation;
+    if (set['planName'] && !set['purchaseSimulation'].planName) {
+      set['purchaseSimulation'].planName = set['planName'];
+    }
+  }
 
   // contact/support objects
   if (typeof data.contact !== 'undefined') set['contact'] = data.contact;

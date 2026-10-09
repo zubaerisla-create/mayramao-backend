@@ -3,12 +3,13 @@ import env from 'dotenv';
 
 env.config();
 
+const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder_initialization_key';
 if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not defined in environment');
+  console.warn('[Stripe] STRIPE_SECRET_KEY is not defined in environment. Stripe features will run in sandbox mode.');
 }
 
 // stripe instance used throughout the app
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(stripeKey, {
   apiVersion: '2022-11-15',
 });
 

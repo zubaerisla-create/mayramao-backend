@@ -9,6 +9,8 @@ import { Types } from "mongoose";
 import { Simulation } from "../simulation/simulation.model";
 import { Ticket } from "../ticket/ticket.model";
 import { Subscription } from "../subscription/subscription.model";
+import { AccountDeletion } from "../auth/account-deletion.model";
+import { PasswordReset } from "../auth/password-reset.model";
 
 const adminLogin = async (email: string, password: string) => {
   // Validate input
@@ -126,7 +128,6 @@ const updateAdmin = async (adminId: string, updates: { email?: string; password?
 };
 
 // password reset helpers (reuse PasswordReset model)
-import { PasswordReset } from "../auth/password-reset.model";
 import { generateOTP } from "../../utils/generateOTP";
 import { sendOTPEmail } from "../../config/mailer";
 
@@ -213,6 +214,47 @@ const updateUser = async (userId: string, updates: { isActive?: boolean }) => {
   }
   await user.save();
   return { id: user._id, email: user.email, isActive: user.isActive };
+};
+
+const deleteUser = async (userId: string) => {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const user = await Auth.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const userObjId = new Types.ObjectId(userId);
+
+  // If user has an active Stripe subscription, cancel it
+  const profile = await UserProfile.findOne({
+    $or: [{ userId: userObjId }, { userId: userId }],
+  });
+
+  if (profile?.subscription?.stripeSubscriptionId) {
+    try {
+      const stripe = await import("../../config/stripe").then((m) => m.default);
+      await stripe.subscriptions.del(profile.subscription.stripeSubscriptionId, {
+        prorate: false,
+      });
+    } catch (stripeErr) {
+      console.warn("Failed to cancel Stripe subscription during admin user deletion:", stripeErr);
+    }
+  }
+
+  // Permanently delete user and all related records from database
+  await Promise.all([
+    UserProfile.deleteMany({ $or: [{ userId: userObjId }, { userId: userId }] }),
+    Simulation.deleteMany({ userId: userObjId }),
+    Ticket.deleteMany({ $or: [{ userId: userObjId }, { userEmail: user.email }] }),
+    PasswordReset.deleteMany({ email: user.email }),
+    AccountDeletion.deleteMany({ email: user.email }),
+    Auth.findByIdAndDelete(userId),
+  ]);
+
+  return { message: "User and all associated data permanently deleted successfully" };
 };
 
 // ---------------------------------------------------------------------------
@@ -364,101 +406,166 @@ const getDashboardStats = async () => {
   const totalSimulations = await Simulation.countDocuments();
   const newSupportMessages = await Ticket.countDocuments({ status: "new" });
 
-  const stripe = await import("../../config/stripe").then((m) => m.default);
+  let totalRevenue = 0;
+  let monthlyRevenue = 0;
+  let trend: { month: string; revenue: number }[] = [];
+  let subscriptionDistribution: { name: string; count: number }[] = [];
 
-  // Calculate Revenue from Stripe Invoices
-  let totalRevenueCents = 0;
-  const revenueByMonth: Record<string, number> = {};
-  
-  let hasMoreInvoices = true;
-  let startingAfterInvoice: string | undefined = undefined;
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const isStripeConfigured = !!(stripeKey && !stripeKey.includes('placeholder') && stripeKey.length > 20);
 
-  while (hasMoreInvoices) {
-    const invoices: any = await stripe.invoices.list({
-      status: 'paid',
-      limit: 100,
-      starting_after: startingAfterInvoice,
-    });
-    
-    for (const invoice of invoices.data) {
-      if (invoice.amount_paid) {
-        totalRevenueCents += invoice.amount_paid;
+  if (isStripeConfigured) {
+    try {
+      const stripe = await import("../../config/stripe").then((m) => m.default);
+
+      // Calculate Revenue from Stripe Invoices
+      let totalRevenueCents = 0;
+      const revenueByMonth: Record<string, number> = {};
+      
+      let hasMoreInvoices = true;
+      let startingAfterInvoice: string | undefined = undefined;
+
+      while (hasMoreInvoices) {
+        const invoices: any = await stripe.invoices.list({
+          status: 'paid',
+          limit: 100,
+          starting_after: startingAfterInvoice,
+        });
         
-        const timestamp = invoice.period_start || invoice.created;
-        const d = new Date(timestamp * 1000);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!revenueByMonth[monthKey]) {
-          revenueByMonth[monthKey] = 0;
+        for (const invoice of invoices.data) {
+          if (invoice.amount_paid) {
+            totalRevenueCents += invoice.amount_paid;
+            
+            const timestamp = invoice.period_start || invoice.created;
+            const d = new Date(timestamp * 1000);
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            
+            if (!revenueByMonth[monthKey]) {
+              revenueByMonth[monthKey] = 0;
+            }
+            revenueByMonth[monthKey] += invoice.amount_paid;
+          }
         }
-        revenueByMonth[monthKey] += invoice.amount_paid;
+        
+        if (invoices.has_more) {
+          startingAfterInvoice = invoices.data[invoices.data.length - 1].id;
+        } else {
+          hasMoreInvoices = false;
+        }
       }
-    }
-    
-    if (invoices.has_more) {
-      startingAfterInvoice = invoices.data[invoices.data.length - 1].id;
-    } else {
-      hasMoreInvoices = false;
+
+      totalRevenue = totalRevenueCents / 100;
+
+      // Monthly Revenue Trend (Last 7 months)
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const monthName = d.toLocaleString('default', { month: 'short' });
+        trend.push({ month: monthName, revenue: (revenueByMonth[monthKey] || 0) / 100 });
+      }
+
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      monthlyRevenue = (revenueByMonth[currentMonthKey] || 0) / 100;
+
+      // Subscription Distribution from Stripe
+      const planCounts: Record<string, number> = {};
+      let hasMoreSubs = true;
+      let startingAfterSub: string | undefined = undefined;
+
+      while (hasMoreSubs) {
+        const subs: any = await stripe.subscriptions.list({
+          status: 'active',
+          limit: 100,
+          starting_after: startingAfterSub,
+          expand: ['data.plan.product'],
+        });
+
+        for (const sub of subs.data) {
+          let planName = sub.metadata?.planName;
+          if (!planName && sub.plan?.product && typeof sub.plan.product !== 'string') {
+            planName = sub.plan.product.name;
+          }
+          if (!planName) {
+             planName = sub.plan?.id || "Unknown Plan";
+          }
+
+          if (!planCounts[planName]) {
+            planCounts[planName] = 0;
+          }
+          planCounts[planName] += 1;
+        }
+
+        if (subs.has_more) {
+          startingAfterSub = subs.data[subs.data.length - 1].id;
+        } else {
+          hasMoreSubs = false;
+        }
+      }
+
+      subscriptionDistribution = Object.keys(planCounts).map(name => ({
+        name,
+        count: planCounts[name]
+      }));
+    } catch (stripeErr: any) {
+      console.warn("[Dashboard Stats] Stripe fetch failed, falling back to local database stats:", stripeErr?.message);
     }
   }
 
-  const totalRevenue = totalRevenueCents / 100;
+  // Fallback to MongoDB metrics if Stripe not configured or returned nothing
+  if (subscriptionDistribution.length === 0 && trend.length === 0) {
+    try {
+      const profilesWithSub = await UserProfile.find({ "subscription.isActive": true }).lean();
+      const planCounts: Record<string, number> = {};
+      let dbRevenue = 0;
 
-  // Monthly Revenue Trend (Last 7 months)
-  const trend = [];
-  const now = new Date();
-  
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const monthName = d.toLocaleString('default', { month: 'short' });
-    trend.push({ month: monthName, revenue: (revenueByMonth[monthKey] || 0) / 100 });
-  }
-
-  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthlyRevenue = (revenueByMonth[currentMonthKey] || 0) / 100;
-
-  // Subscription Distribution from Stripe
-  const planCounts: Record<string, number> = {};
-  let hasMoreSubs = true;
-  let startingAfterSub: string | undefined = undefined;
-
-  while (hasMoreSubs) {
-    const subs: any = await stripe.subscriptions.list({
-      status: 'active',
-      limit: 100,
-      starting_after: startingAfterSub,
-      expand: ['data.plan.product'],
-    });
-
-    for (const sub of subs.data) {
-      // Use metadata planName if available, else try to get from expanded product, else fallback
-      let planName = sub.metadata?.planName;
-      if (!planName && sub.plan?.product && typeof sub.plan.product !== 'string') {
-        planName = sub.plan.product.name;
-      }
-      if (!planName) {
-         planName = sub.plan?.id || "Unknown Plan";
+      for (const p of profilesWithSub) {
+        const pName = p.subscription?.planName || "Standard";
+        planCounts[pName] = (planCounts[pName] || 0) + 1;
+        if (p.subscription?.price) {
+          dbRevenue += Number(p.subscription.price) || 0;
+        }
       }
 
-      if (!planCounts[planName]) {
-        planCounts[planName] = 0;
+      subscriptionDistribution = Object.keys(planCounts).map(name => ({
+        name,
+        count: planCounts[name]
+      }));
+
+      if (subscriptionDistribution.length === 0) {
+        const allPlans = await Subscription.find().lean();
+        if (allPlans.length > 0) {
+          subscriptionDistribution = allPlans.map(p => ({ name: p.planName, count: 0 }));
+        } else {
+          subscriptionDistribution = [
+            { name: "Monthly", count: 0 },
+            { name: "Yearly", count: 0 }
+          ];
+        }
       }
-      planCounts[planName] += 1;
+
+      totalRevenue = dbRevenue;
+      monthlyRevenue = dbRevenue;
+
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthName = d.toLocaleString('default', { month: 'short' });
+        trend.push({ month: monthName, revenue: i === 0 ? monthlyRevenue : 0 });
+      }
+    } catch (dbErr: any) {
+      console.error("[Dashboard Stats] DB stats fallback error:", dbErr);
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        trend.push({ month: d.toLocaleString('default', { month: 'short' }), revenue: 0 });
+      }
+      subscriptionDistribution = [{ name: "Standard", count: 0 }];
     }
-
-    if (subs.has_more) {
-      startingAfterSub = subs.data[subs.data.length - 1].id;
-    } else {
-      hasMoreSubs = false;
-    }
   }
-
-  const subscriptionDistribution = Object.keys(planCounts).map(name => ({
-    name,
-    count: planCounts[name]
-  }));
 
   return {
     totalUsers,
@@ -485,6 +592,7 @@ export const AdminService = {
   getAllUsers,
   getUserById,
   updateUser,
+  deleteUser,
 
   // subscription control (admin only)
   extendUserSubscription,

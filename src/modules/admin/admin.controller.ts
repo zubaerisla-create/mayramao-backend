@@ -188,6 +188,20 @@ const updateUser = async (req: AdminRequest, res: Response) => {
   }
 };
 
+const deleteUser = async (req: AdminRequest, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    const result = await AdminService.deleteUser(id);
+    res.status(200).json({ success: true, message: result.message });
+  } catch (error: any) {
+    console.error("Delete user error:", error);
+    res.status(400).json({ success: false, message: error.message || "Failed to delete user" });
+  }
+};
+
 // admin subscription management helpers
 const extendUserSubscription = async (req: AdminRequest, res: Response) => {
   try {
@@ -325,6 +339,7 @@ export const AdminController = {
   getAllUsers,
   getUserById,
   updateUser,
+  deleteUser,
   extendUserSubscription,
   downgradeUserSubscription,
   cancelUserSubscription,

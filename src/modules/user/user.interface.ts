@@ -22,7 +22,9 @@ export interface IUserProfile {
   householdResponsibilityLevel?: string;
   incomeStability?: string;
   riskTolerance?: string;
+  totalSimulationsUsed?: number;
   planName?: string;
+  currency?: "USD" | "BDT";
   targetAmount?: number;
   targetDate?: Date;
   goalDescription?: string;
@@ -59,6 +61,9 @@ export interface IUserProfile {
     stripePriceId?: string;
     stripePaymentIntentId?: string; // kept for legacy one‑time flows
     stripeChargeId?: string;
+    revenueCatAppUserId?: string;
+    revenueCatEntitlementId?: string;
+    store?: string;
     isActive?: boolean;
   };
  

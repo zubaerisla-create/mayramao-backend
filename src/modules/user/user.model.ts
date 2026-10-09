@@ -25,9 +25,11 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
     householdResponsibilityLevel: { type: String, default: "" },
     incomeStability: { type: String, default: "" },
     riskTolerance: { type: String, default: "" },
+    totalSimulationsUsed: { type: Number, default: 0 },
   
     
     planName: { type: String, default: "" },
+    currency: { type: String, enum: ["USD", "BDT"], default: "USD" },
     targetAmount: { type: Number, default: 0 }, // Fixed: was String, now Number
     targetDate: { type: Date, default: null },
     goalDescription: { type: String, default: "" },
@@ -64,6 +66,9 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
       stripePriceId: { type: String, default: "" },
       stripePaymentIntentId: { type: String, default: "" },
       stripeChargeId: { type: String, default: "" },
+      revenueCatAppUserId: { type: String, default: "" },
+      revenueCatEntitlementId: { type: String, default: "" },
+      store: { type: String, default: "" },
       isActive: { type: Boolean, default: false },
     },
   },

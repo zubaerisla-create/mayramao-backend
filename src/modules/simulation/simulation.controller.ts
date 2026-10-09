@@ -13,16 +13,19 @@ const createSimulation = async (req: Request, res: Response) => {
   }
 
   try {
+    const oid = new Types.ObjectId(userId);
+    const filter = { $or: [{ userId }, { userId: oid }] };
+
     if (purchaseSimulation) {
       // Update user's profile with the new purchaseSimulation
       await UserProfile.findOneAndUpdate(
-        { userId: new Types.ObjectId(userId) },
+        filter,
         { $set: { purchaseSimulation } },
         { upsert: false } // don't create if not exists
       );
     }
 
-    const sim = await SimulationService.runSimulationForUser(userId);
+    const sim = await SimulationService.runSimulationForUser(userId, purchaseSimulation);
     return res.json({ success: true, simulation: sim });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message || 'simulation failed' });
